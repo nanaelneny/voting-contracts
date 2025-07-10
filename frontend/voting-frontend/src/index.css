@@ -1,0 +1,38 @@
+/* Tailwind CSS base, components, and utilities */
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Import a Google Font (Poppins) */
+@import url('https://fonts.googleapis.com/css2?family=Poppins:wght@400;600;700&display=swap');
+
+/* Global styles */
+html, body {
+  @apply h-full m-0 p-0;
+  font-family: 'Poppins', sans-serif;
+  background: linear-gradient(135deg, #f0f4ff, #e0f7fa);
+  color: #333;
+}
+
+h1, h2, h3, h4, h5, h6 {
+  @apply font-bold text-gray-800;
+}
+
+a {
+  @apply text-blue-600 hover:text-blue-800;
+  text-decoration: none;
+}
+
+button {
+  @apply focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2;
+  transition: all 0.2s ease-in-out;
+}
+
+input, textarea {
+  @apply border rounded px-3 py-2 w-full focus:outline-none focus:ring-2 focus:ring-blue-400;
+  transition: all 0.2s ease-in-out;
+}
+
+.container {
+  @apply max-w-4xl mx-auto px-4;
+}
