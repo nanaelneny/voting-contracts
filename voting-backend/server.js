@@ -14,7 +14,16 @@ const app = express();
 // Add these BEFORE routes
 app.use(express.json()); // for parsing application/json
 app.use(express.urlencoded({ extended: true })); // for parsing form data
-app.use(cors());
+const allowedOrigins = [
+  "http://localhost:3000",            // React dev server
+  "https://voting-contracts.vercel.app", // Your production frontend
+];
+
+app.use(cors({
+  origin: allowedOrigins,
+  credentials: true, // allow cookies and authorization headers
+}));
+
 
 // API routes
 app.use("/api/auth", authRoutes);

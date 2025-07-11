@@ -22,7 +22,9 @@ function App() {
   const [totalVotes, setTotalVotes] = useState(0);
   const [hasVoted, setHasVoted] = useState(false);
   const [txPending, setTxPending] = useState(false);
+  // eslint-disable-next-line no-unused-vars
   const [provider, setProvider] = useState(null);
+  // eslint-disable-next-line no-unused-vars
   const [signer, setSigner] = useState(null);
 
   // ✅ Check if current user is admin
@@ -137,8 +139,8 @@ function App() {
       />
       <Routes>
         {/* Auth routes */}
-        <Route path="/register" element={<Register />} />
-        <Route path="/login" element={<Login />} />
+        <Route path="/register" element={<Register connectWallet={connectWallet} />} />
+        <Route path="/login" element={<Login connectWallet={connectWallet} />} />
 
         {/* Voting Dashboard */}
         <Route
