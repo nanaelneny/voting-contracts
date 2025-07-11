@@ -13,7 +13,7 @@ function AdminPanel({
 
   // ✅ Add Candidate
   const addCandidate = async () => {
-    if (!candidateName) {
+    if (!candidateName.trim()) {
       alert("⚠️ Please enter a candidate name.");
       return;
     }
@@ -23,7 +23,7 @@ function AdminPanel({
       await tx.wait();
       alert(`✅ Candidate "${candidateName}" added successfully!`);
       setCandidateName("");
-      await fetchContractData(); // 🔄 Refresh data
+      await fetchContractData();
     } catch (error) {
       console.error("Error adding candidate:", error);
       alert("⚠️ Failed to add candidate.");
@@ -34,12 +34,13 @@ function AdminPanel({
 
   // ✅ Start Voting
   const startVoting = async () => {
+    if (!window.confirm("⚠️ Are you sure you want to start voting?")) return;
     try {
       setLoading(true);
       const tx = await votingContract.startVoting();
       await tx.wait();
       alert("✅ Voting started successfully!");
-      await fetchContractData(); // 🔄 Refresh data
+      await fetchContractData();
     } catch (error) {
       console.error("Error starting voting:", error);
       alert("⚠️ Failed to start voting.");
@@ -50,15 +51,16 @@ function AdminPanel({
 
   // ✅ End Voting
   const endVoting = async () => {
+    if (!window.confirm("⚠️ Are you sure you want to end voting?")) return;
     try {
       setLoading(true);
       const tx = await votingContract.endVoting();
       await tx.wait();
       alert("✅ Voting ended successfully!");
-      await fetchContractData(); // 🔄 Refresh winner and candidates
       const winnerName = await votingContract.getWinner();
       console.log("🎯 Winner from contract:", winnerName);
-    setWinner(winnerName);
+      setWinner(winnerName);
+      await fetchContractData();
     } catch (error) {
       console.error("Error ending voting:", error);
       alert("⚠️ Failed to end voting.");
@@ -70,15 +72,13 @@ function AdminPanel({
   // ✅ Reset Election
   const resetElection = async () => {
     if (!window.confirm("⚠️ Are you sure you want to reset the election?")) return;
-
     try {
       setLoading(true);
       const tx = await votingContract.resetElection();
       await tx.wait();
-      alert("✅ Election reset successfully!");
-      await fetchContractData(); // 🔄 Refresh data (clear winner/candidates)
       setWinner(null);
       alert("✅ Election reset successfully!");
+      await fetchContractData();
     } catch (error) {
       console.error("Error resetting election:", error);
       alert("⚠️ Failed to reset election.");
@@ -91,6 +91,7 @@ function AdminPanel({
     <div className="mt-6 p-4 bg-white/10 rounded-xl shadow-md">
       <h2 className="text-lg font-bold mb-2 text-white">🔧 Admin Panel</h2>
 
+      {/* Add Candidate */}
       <div className="flex space-x-2 mb-3">
         <input
           type="text"
@@ -98,27 +99,33 @@ function AdminPanel({
           value={candidateName}
           onChange={(e) => setCandidateName(e.target.value)}
           className="w-full p-2 rounded bg-white/80 text-black"
+          disabled={loading || votingStatus.started}
         />
         <button
           onClick={addCandidate}
           disabled={loading || votingStatus.started}
           className={`px-4 py-2 rounded text-white ${
-            votingStatus.started ? "bg-gray-500 cursor-not-allowed" : "bg-green-600 hover:bg-green-700"
+            votingStatus.started
+              ? "bg-gray-500 cursor-not-allowed"
+              : "bg-green-600 hover:bg-green-700"
           }`}
         >
-          Add Candidate
+          {loading ? "Processing..." : "Add Candidate"}
         </button>
       </div>
 
+      {/* Voting Controls */}
       <div className="flex flex-col gap-2">
         <button
           onClick={startVoting}
           disabled={loading || votingStatus.started}
           className={`w-full px-4 py-2 rounded text-white ${
-            votingStatus.started ? "bg-gray-500 cursor-not-allowed" : "bg-blue-600 hover:bg-blue-700"
+            votingStatus.started
+              ? "bg-gray-500 cursor-not-allowed"
+              : "bg-blue-600 hover:bg-blue-700"
           }`}
         >
-          Start Voting
+          {loading && !votingStatus.started ? "Starting..." : "Start Voting"}
         </button>
         <button
           onClick={endVoting}
@@ -129,7 +136,7 @@ function AdminPanel({
               : "bg-red-600 hover:bg-red-700"
           }`}
         >
-          End Voting
+          {loading && votingStatus.started && !votingStatus.ended ? "Ending..." : "End Voting"}
         </button>
         <button
           onClick={resetElection}
@@ -140,7 +147,7 @@ function AdminPanel({
               : "bg-yellow-600 hover:bg-yellow-700"
           }`}
         >
-          Reset Election
+          {loading && votingStatus.ended ? "Resetting..." : "Reset Election"}
         </button>
       </div>
     </div>

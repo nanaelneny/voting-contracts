@@ -10,7 +10,7 @@ import {
   Legend,
 } from "chart.js";
 
-// ✅ Register chart.js components once
+// ✅ Register Chart.js components once
 ChartJS.register(CategoryScale, LinearScale, BarElement, Title, Tooltip, Legend);
 
 const LiveResultsChart = ({ candidates }) => {
@@ -22,6 +22,17 @@ const LiveResultsChart = ({ candidates }) => {
     );
   }
 
+  // 🌈 Generate dynamic colors for candidates
+  const generateColors = (count) => {
+    const colors = [];
+    for (let i = 0; i < count; i++) {
+      colors.push(`hsl(${(i * 360) / count}, 70%, 60%)`); // pastel hues
+    }
+    return colors;
+  };
+
+  const colors = generateColors(candidates.length);
+
   // 📊 Chart Data
   const data = {
     labels: candidates.map((candidate) => candidate.name),
@@ -29,15 +40,9 @@ const LiveResultsChart = ({ candidates }) => {
       {
         label: "Votes",
         data: candidates.map((candidate) => Number(candidate.voteCount)),
-        backgroundColor: [
-          "#f87171", // red
-          "#60a5fa", // blue
-          "#34d399", // green
-          "#fbbf24", // yellow
-          "#a78bfa", // purple
-          "#f472b6", // pink
-        ],
+        backgroundColor: colors,
         borderWidth: 1,
+        borderColor: "#fff",
       },
     ],
   };
@@ -60,6 +65,11 @@ const LiveResultsChart = ({ candidates }) => {
           size: 18,
         },
       },
+      tooltip: {
+        callbacks: {
+          label: (context) => `Votes: ${context.parsed.y}`,
+        },
+      },
     },
     scales: {
       x: {
@@ -67,14 +77,19 @@ const LiveResultsChart = ({ candidates }) => {
         grid: { color: "rgba(255,255,255,0.2)" },
       },
       y: {
+        beginAtZero: true,
         ticks: { color: "#fff" },
         grid: { color: "rgba(255,255,255,0.2)" },
       },
     },
+    animation: {
+      duration: 1000, // smooth animation
+      easing: "easeOutBounce",
+    },
   };
 
   return (
-    <div className="mt-6 p-4 rounded-lg bg-white/10 backdrop-blur-md">
+    <div className="mt-6 p-4 rounded-lg bg-white/10 backdrop-blur-md shadow-md">
       <Bar data={data} options={options} />
     </div>
   );

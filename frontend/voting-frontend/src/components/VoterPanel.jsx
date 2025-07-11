@@ -1,4 +1,5 @@
 /* eslint-disable no-unused-vars */
+import { useState } from "react";
 import LiveResultsChart from "./LiveResultsChart";
 
 function VoterPanel({
@@ -7,8 +8,10 @@ function VoterPanel({
   voteForCandidate,
   hasVoted,
   winner,
-  fetchContractData, // 🔥 Pass this from App.jsx
+  fetchContractData,
 }) {
+  const [txPending, setTxPending] = useState(false); // Track vote transaction state
+
   const handleVote = async (candidateId) => {
     if (!votingStatus.started || votingStatus.ended) {
       alert("⚠️ Voting is not active.");
@@ -19,12 +22,15 @@ function VoterPanel({
       return;
     }
     try {
+      setTxPending(true); // 🔄 Start loading
       await voteForCandidate(candidateId);
       alert("✅ Your vote has been recorded!");
-      await fetchContractData(); // 🔄 Refresh candidates and vote counts
+      await fetchContractData(); // 🔄 Refresh data
     } catch (error) {
       console.error("Vote error:", error);
       alert("⚠️ Failed to cast vote.");
+    } finally {
+      setTxPending(false); // ✅ End loading
     }
   };
 
@@ -43,27 +49,31 @@ function VoterPanel({
                 key={index}
                 className="p-3 bg-white/20 rounded flex justify-between items-center"
               >
-                <span className="font-semibold">{candidate.name}</span>
-                <span className="font-mono text-sm text-yellow-200">
-                  {candidate.voteCount} votes
-                </span>
+                <div className="flex flex-col">
+                  <span className="font-semibold">{candidate.name}</span>
+                  <span className="font-mono text-sm text-yellow-200">
+                    {candidate.voteCount} votes
+                  </span>
+                </div>
                 {!hasVoted && votingStatus.started && !votingStatus.ended && (
                   <button
                     onClick={() => handleVote(index)}
-                    className="ml-4 px-3 py-1 bg-blue-600 text-white rounded hover:bg-blue-700"
+                    className="ml-4 px-3 py-1 bg-blue-600 text-white rounded hover:bg-blue-700 disabled:bg-gray-400"
+                    disabled={txPending} // Disable during tx
                   >
-                    Vote
+                    {txPending ? "Voting..." : "Vote"}
                   </button>
                 )}
               </li>
             ))}
           </ul>
+
           {/* ✅ Chart appears below the list */}
-            {candidates.length > 0 && !votingStatus.ended && (
-                <div className="mt-6">
-                    <LiveResultsChart candidates={candidates} />
-                </div>
-                )}
+          {candidates.length > 0 && !votingStatus.ended && (
+            <div className="mt-6">
+              <LiveResultsChart candidates={candidates} />
+            </div>
+          )}
 
           {hasVoted && (
             <p className="mt-3 text-green-300 font-semibold">

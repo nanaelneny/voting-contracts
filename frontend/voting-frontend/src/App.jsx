@@ -3,10 +3,13 @@ import { useEffect, useState } from "react";
 import { BrowserProvider, Contract, getAddress } from "ethers";
 import VotingContract from "./contracts/Voting.json";
 import contractAddress from "./contracts/contractAddress.json";
+import React from "react";
+import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
+
 import Header from "./components/Header";
-import AdminPanel from "./components/AdminPanel";
-import VoterPanel from "./components/VoterPanel";
-import ElectionsList from "./components/ElectionsList";
+import Register from "./pages/Register";
+import Login from "./pages/Login";
+import Dashboard from "./pages/Dashboard";
 
 function App() {
   const [loading, setLoading] = useState(false);
@@ -19,9 +22,7 @@ function App() {
   const [totalVotes, setTotalVotes] = useState(0);
   const [hasVoted, setHasVoted] = useState(false);
   const [txPending, setTxPending] = useState(false);
-  // eslint-disable-next-line no-unused-vars
   const [provider, setProvider] = useState(null);
-  // eslint-disable-next-line no-unused-vars
   const [signer, setSigner] = useState(null);
 
   // ✅ Check if current user is admin
@@ -107,7 +108,9 @@ function App() {
       // 🏆 Get winner if voting ended
       if (ended) {
         try {
-          
+          // Set the winner (update logic if needed)
+          const winnerCandidate = await contract.getWinner();
+          setWinner(winnerCandidate.name);
         } catch (err) {
           console.error("Error fetching winner:", err);
           setWinner("⚠️ Could not fetch winner");
@@ -126,82 +129,42 @@ function App() {
   }, []);
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-purple-600 to-indigo-900 p-6 text-white">
+    <Router>
       <Header
         currentAccount={currentAccount}
         connectWallet={connectWallet}
         isAdmin={isAdmin}
       />
+      <Routes>
+        {/* Auth routes */}
+        <Route path="/register" element={<Register />} />
+        <Route path="/login" element={<Login />} />
 
-      <div className="max-w-md mx-auto p-6 rounded-2xl bg-white/20 backdrop-blur-md border border-white/30 shadow-lg hover:shadow-2xl transition duration-300">
-        {currentAccount ? (
-          <>
-            <p className="mb-2 text-green-300">
-              ✅ Connected: {currentAccount} {isAdmin() && "(Admin)"}
-            </p>
-            {txPending && (
-              <p className="text-yellow-300 font-semibold mt-2">
-                ⏳ Waiting for transaction confirmation...
-              </p>
-            )}
-            <p className="mt-2">🗳️ Total Votes Cast: {totalVotes}</p>
-
-            {winner && (
-              <p className="mt-4 text-xl font-bold text-yellow-300">
-                🏆 Winner: {winner}
-              </p>
-            )}
-
-            <VoterPanel
-              votingStatus={votingStatus}
+        {/* Voting Dashboard */}
+        <Route
+          path="/"
+          element={
+            <Dashboard
+              currentAccount={currentAccount}
+              connectWallet={connectWallet}
+              votingContract={votingContract}
               candidates={candidates}
-              voteForCandidate={async (candidateId) => {
-                try {
-                  setTxPending(true);
-                  const tx = await votingContract.vote(candidateId);
-                  await tx.wait();
-                  alert("✅ Vote cast successfully!");
-                  await fetchContractData(votingContract); // 🔄 Refresh
-                } catch (error) {
-                  console.error("Voting error:", error);
-                  alert("⚠️ Transaction failed.");
-                } finally {
-                  setTxPending(false);
-                }
-              }}
-              hasVoted={hasVoted}
               winner={winner}
+              votingStatus={votingStatus}
+              totalVotes={totalVotes}
+              isAdmin={isAdmin}
+              txPending={txPending}
+              setTxPending={setTxPending}
+              hasVoted={hasVoted}
               fetchContractData={() => fetchContractData(votingContract)}
+              setLoading={setLoading}
+              loading={loading}
+              setWinner={setWinner}
             />
-
-            {isAdmin() && (
-              <AdminPanel
-                votingContract={votingContract}
-                votingStatus={votingStatus}
-                fetchContractData={() => fetchContractData(votingContract)}
-                setLoading={setLoading}
-                loading={loading}
-                setWinner={setWinner}
-              />
-            )}
-          </>
-        ) : (
-          <div className="text-center">
-            <p className="mb-4 text-red-200">❌ Wallet not connected</p>
-            <button
-              onClick={connectWallet}
-              className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700"
-            >
-              Connect Wallet
-            </button>
-          </div>
-        )}
-      </div>
-
-      <div className="mt-10">
-        <ElectionsList />
-      </div>
-    </div>
+          }
+        />
+      </Routes>
+    </Router>
   );
 }
 
