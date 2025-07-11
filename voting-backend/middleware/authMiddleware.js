@@ -1,30 +1,31 @@
-// middleware/authMiddleware.js
 const jwt = require("jsonwebtoken");
-const secretKey = process.env.JWT_SECRET || "your_jwt_secret_key"; // Use env variable in production
+const secretKey = process.env.JWT_SECRET || "supersecretkey"; // Fallback to env var
 
-// Verify JWT token
+// ✅ Verify JWT token
 exports.verifyToken = (req, res, next) => {
-  const token = req.headers.authorization;
+    const authHeader = req.headers.authorization;
 
-  if (!token) {
-    return res.status(401).json({ message: "Access denied. No token provided." });
-  }
+    if (!authHeader || !authHeader.startsWith("Bearer ")) {
+        return res.status(401).json({ message: "❌ Access denied. No token provided." });
+    }
 
-  try {
-    const decoded = jwt.verify(token, secretKey);
-    req.user = decoded;
-    next();
-  } catch (error) {
-    console.error("Invalid token:", error);
-    res.status(400).json({ message: "Invalid token." });
-  }
+    const token = authHeader.split(" ")[1]; // Extract token from "Bearer <token>"
+
+    try {
+        const decoded = jwt.verify(token, secretKey);
+        req.user = decoded; // Attach user info to request
+        next();
+    } catch (error) {
+        console.error("❌ Invalid token:", error);
+        res.status(401).json({ message: "❌ Invalid or expired token." });
+    }
 };
 
-// Check if user is admin
+// ✅ Check if user is admin
 exports.isAdmin = (req, res, next) => {
-  if (req.user && req.user.role === "admin") {
-    next();
-  } else {
-    return res.status(403).json({ message: "Access denied. Admins only." });
-  }
+    if (req.user && req.user.role === "admin") {
+        next();
+    } else {
+        return res.status(403).json({ message: "❌ Access denied. Admins only." });
+    }
 };
