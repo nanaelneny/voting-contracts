@@ -49,6 +49,7 @@ if (process.env.NODE_ENV === "production") {
 }
 
 express.application.use = function(path, ...handlers) {
+  console.log("app.use() called with:", path); // 👈 Add this
   if (typeof path === 'string' && path.startsWith('http')) {
     console.error("🚨 Invalid route path used in app.use():", path);
     throw new Error(`Invalid route path: ${path}`);
