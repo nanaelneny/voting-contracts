@@ -2,7 +2,7 @@
 const express = require("express");
 const dotenv = require("dotenv");
 const cors = require("cors");
-
+const path = require("path");
 dotenv.config();
 
 const authRoutes = require("./routes/authRoutes");
@@ -36,9 +36,7 @@ app.listen(PORT, () => {
   console.log(`✅ Server running on http://localhost:${PORT}`);
 });
 
-const path = require("path");
 
-const path = require("path");
 
 // Serve React frontend in production
 if (process.env.NODE_ENV === "production") {
