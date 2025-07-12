@@ -3,6 +3,7 @@ const express = require("express");
 const dotenv = require("dotenv");
 const cors = require("cors");
 const path = require("path");
+const originalUse = express.application.use;
 dotenv.config();
 
 const authRoutes = require("./routes/authRoutes");
@@ -46,3 +47,11 @@ if (process.env.NODE_ENV === "production") {
     res.sendFile(path.join(__dirname, "../frontend/build", "index.html"));
   });
 }
+
+express.application.use = function(path, ...handlers) {
+  if (typeof path === 'string' && path.startsWith('http')) {
+    console.error("🚨 Invalid route path used in app.use():", path);
+    throw new Error(`Invalid route path: ${path}`);
+  }
+  return originalUse.call(this, path, ...handlers);
+};
