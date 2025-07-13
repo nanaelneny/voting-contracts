@@ -23,6 +23,20 @@ const poolPromise = new sql.ConnectionPool(dbConfig)
         process.exit(1);
     });
 
+
+// 🟢 Add query helper
+async function query(sqlQuery, params = {}) {
+    const pool = await poolPromise;
+    const request = pool.request();
+
+    for (const key in params) {
+        request.input(key, params[key]);
+    }
+
+    return request.query(sqlQuery);
+}
+
+
 module.exports = {
     sql,
     poolPromise

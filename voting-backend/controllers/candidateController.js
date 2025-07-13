@@ -1,44 +1,27 @@
-const sql = require("mssql");
-require("dotenv").config();
+const { query } = require("../db");
 
-const dbConfig = {
-    user: process.env.DB_USER, // e.g., 'sa'
-    password: process.env.DB_PASSWORD, // e.g., 'yourStrong(!)Password'
-    server: process.env.DB_SERVER, // e.g., 'localhost'
-    database: process.env.DB_NAME, // e.g., 'VotingDB'
-    options: {
-        encrypt: true, // Azure = true, Local = false
-        trustServerCertificate: true // true for dev
+// Add a candidate
+exports.addCandidate = async (req, res) => {
+    const { name, party } = req.body;
+    try {
+        await query(
+            "INSERT INTO Candidates (name, party) VALUES (@name, @party)",
+            { name, party }
+        );
+        res.status(201).json({ message: "Candidate added successfully" });
+    } catch (err) {
+        console.error("Error adding candidate:", err);
+        res.status(500).json({ error: "Internal server error" });
     }
 };
 
-// Create connection pool
-const poolPromise = new sql.ConnectionPool(dbConfig)
-    .connect()
-    .then(pool => {
-        console.log("✅ Connected to SQL Server");
-        return pool;
-    })
-    .catch(err => {
-        console.error("❌ Database connection failed:", err);
-        process.exit(1);
-    });
-
-// Helper query function
-async function query(sqlQuery, params = {}) {
-    const pool = await poolPromise;
-    const request = pool.request();
-
-    // Add parameters safely
-    for (const key in params) {
-        request.input(key, params[key]);
+// Get all candidates
+exports.getAllCandidates = async (req, res) => {
+    try {
+        const result = await query("SELECT * FROM Candidates");
+        res.status(200).json(result.recordset);
+    } catch (err) {
+        console.error("Error fetching candidates:", err);
+        res.status(500).json({ error: "Internal server error" });
     }
-
-    return request.query(sqlQuery);
-}
-
-module.exports = {
-    sql,
-    poolPromise,
-    query // 🟢 Export the helper function
 };
