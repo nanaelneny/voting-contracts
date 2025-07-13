@@ -1,4 +1,4 @@
-const { query } = require("../config/db");
+const { query, poolPromise, sql } = require("../config/db");
 
 // ✅ Add a candidate linked to an election
 const addCandidate = async (req, res) => {
@@ -14,6 +14,17 @@ const addCandidate = async (req, res) => {
 
         const pool = await poolPromise;
         const request = pool.request();
+
+        const checkElection = await pool.request()
+        .input("election_id", sql.Int, election_id)
+        .query("SELECT id FROM Elections WHERE id = @election_id");
+
+        if (checkElection.recordset.length === 0) {
+        return res.status(400).json({
+        error: "❌ Invalid election_id. No election found with this ID."
+        });
+}
+
 
         // 👇 Bind parameters
         await request
@@ -38,7 +49,12 @@ const addCandidate = async (req, res) => {
 const getAllCandidates = async (req, res) => {
     try {
         const pool = await poolPromise;
-        const result = await pool.request().query("SELECT * FROM Candidates");
+        const result = await pool.request().query(`
+            SELECT c.id, c.name, c.party, c.age, c.position, c.election_id,
+                   e.name AS election_name, e.start_date, e.end_date
+            FROM Candidates c
+            LEFT JOIN Elections e ON c.election_id = e.id
+        `);
 
         res.status(200).json(result.recordset);
     } catch (error) {
@@ -46,6 +62,7 @@ const getAllCandidates = async (req, res) => {
         res.status(500).json({ error: "❌ Internal server error" });
     }
 };
+
 
 const getCandidatesByElection = async (req, res) => {
     const { election_id } = req.params;
