@@ -1,10 +1,18 @@
 const express = require("express");
 const router = express.Router();
-const candidateController = require("../controllers/candidateController");
+const {
+    addCandidate,
+    getAllCandidates,
+    getCandidatesByElection,
+} = require("../controllers/candidateController");
 
-// Add candidate
-router.post("/", candidateController.addCandidate);
+// Add a candidate
+router.post("/", addCandidate);
 
 // Get all candidates
-router.get("/", candidateController.getAllCandidates);
+router.get("/", getAllCandidates);
+
+// Get candidates by election
+router.get("/election/:election_id", getCandidatesByElection);
+
 module.exports = router;

@@ -1,4 +1,4 @@
-const { pool, sql, poolConnect } = require("../config/db");
+const { sql, poolPromise } = require("../config/db");
 
 // Create a new election
 exports.createElection = async (req, res) => {
@@ -9,7 +9,7 @@ exports.createElection = async (req, res) => {
     }
 
     try {
-        await poolConnect;
+        const pool = await poolPromise; // ✅ Use poolPromise and await
         const request = pool.request();
 
         await request
@@ -33,7 +33,7 @@ exports.createElection = async (req, res) => {
 // Get all elections
 exports.getElections = async (req, res) => {
     try {
-        await poolConnect;
+        const pool = await poolPromise; // ✅ Use poolPromise
         const request = pool.request();
 
         const result = await request.query(`
@@ -53,7 +53,7 @@ exports.updateElection = async (req, res) => {
     const { name, description, start_date, end_date } = req.body;
 
     try {
-        await poolConnect;
+        const pool = await poolPromise; // ✅ Use poolPromise
         const request = pool.request();
 
         const result = await request
@@ -87,7 +87,7 @@ exports.deleteElection = async (req, res) => {
     const { id } = req.params;
 
     try {
-        await poolConnect;
+        const pool = await poolPromise; // ✅ Use poolPromise
         const request = pool.request();
 
         const result = await request
