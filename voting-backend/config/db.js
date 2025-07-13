@@ -39,5 +39,6 @@ async function query(sqlQuery, params = {}) {
 
 module.exports = {
     sql,
-    poolPromise
+    poolPromise,
+    query
 };
