@@ -12,12 +12,20 @@ const addCandidate = async (req, res) => {
             });
         }
 
-        // 📝 Insert candidate
-        await query(
-            `INSERT INTO Candidates (name, party, age, election_id) 
-             VALUES (@name, @party, @age, @election_id)`,
-            { name, party, age, election_id }
-        );
+        const pool = await poolPromise;
+        const request = pool.request();
+
+        // 👇 Bind parameters
+        await request
+            .input("name", sql.VarChar, name)
+            .input("party", sql.VarChar, party)
+            .input("age", sql.Int, age)
+            .input("position", sql.VarChar, position)
+            .input("election_id", sql.Int, election_id)
+            .query(`
+                INSERT INTO Candidates (name, party, age, position, election_id) 
+                VALUES (@name, @party, @age, @position, @election_id)
+            `);
 
         res.status(201).json({ message: "✅ Candidate added successfully" });
     } catch (error) {
@@ -29,7 +37,9 @@ const addCandidate = async (req, res) => {
 // ✅ Fetch all candidates
 const getAllCandidates = async (req, res) => {
     try {
-        const result = await query("SELECT * FROM Candidates");
+        const pool = await poolPromise;
+        const result = await pool.request().query("SELECT * FROM Candidates");
+
         res.status(200).json(result.recordset);
     } catch (error) {
         console.error("🔥 Error fetching candidates:", error);
@@ -37,15 +47,14 @@ const getAllCandidates = async (req, res) => {
     }
 };
 
-// ✅ Fetch candidates by election
 const getCandidatesByElection = async (req, res) => {
     const { election_id } = req.params;
 
     try {
-        const result = await query(
-            "SELECT * FROM Candidates WHERE election_id = @election_id",
-            { election_id: parseInt(election_id) }
-        );
+        const pool = await poolPromise;
+        const result = await pool.request()
+            .input("election_id", sql.Int, parseInt(election_id))
+            .query("SELECT * FROM Candidates WHERE election_id = @election_id");
 
         res.status(200).json(result.recordset);
     } catch (error) {
@@ -53,6 +62,7 @@ const getCandidatesByElection = async (req, res) => {
         res.status(500).json({ error: "❌ Internal server error" });
     }
 };
+
 
 module.exports = {
     addCandidate,

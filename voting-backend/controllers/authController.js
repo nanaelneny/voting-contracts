@@ -32,10 +32,11 @@ exports.registerUser = async (req, res) => {
             .input("username", sql.VarChar, username)
             .input("email", sql.VarChar, email)
             .input("password", sql.VarChar, hashedPassword)
+            .input("role", sql.VarChar, "admin")
             .query(`
-                INSERT INTO Users (username, email, password) 
+                INSERT INTO Users (username, email, password, role) 
                 OUTPUT Inserted.id
-                VALUES (@username, @email, @password)
+                VALUES (@username, @email, @password, @role)
             `);
 
         console.log("✅ User registered successfully");

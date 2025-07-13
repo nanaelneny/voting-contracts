@@ -1,18 +1,15 @@
 const express = require("express");
 const router = express.Router();
-const {
-    addCandidate,
-    getAllCandidates,
-    getCandidatesByElection,
-} = require("../controllers/candidateController");
+const candidateController = require("../controllers/candidateController");
+const { verifyToken, isAdmin } = require("../middleware/authMiddleware");
 
-// Add a candidate
-router.post("/", addCandidate);
+// POST: Add candidate
+router.post("/", verifyToken, isAdmin, candidateController.addCandidate);
 
-// Get all candidates
-router.get("/", getAllCandidates);
+// GET: All candidates
+router.get("/", candidateController.getAllCandidates);
 
-// Get candidates by election
-router.get("/election/:election_id", getCandidatesByElection);
+// GET: Candidates by election
+router.get("/:election_id", candidateController.getCandidatesByElection);
 
 module.exports = router;
