@@ -5,6 +5,7 @@ const cors = require("cors");
 const authRoutes = require("./routes/authRoutes");
 const electionRoutes = require("./routes/electionRoutes");
 const voteRoutes = require("./routes/voteRoutes");
+const candidateRoutes = require("./routes/candidateRoutes");
 
 dotenv.config();
 
@@ -17,6 +18,7 @@ app.use(express.json());
 app.use("/api/auth", authRoutes);
 app.use("/api/elections", electionRoutes);
 app.use("/api/votes", voteRoutes);
+app.use("/api/candidates", candidateRoutes);
 
 app.get("/", (req, res) => {
     res.send("✅ Blockchain Voting API is running");
