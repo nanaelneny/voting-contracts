@@ -12,10 +12,10 @@ exports.registerUser = async (req, res) => {
 
     try {
         const pool = await poolPromise;
-        const request = pool.request();
 
         // 🔍 Check if email already exists
-        const existingUser = await request
+        const checkRequest = pool.request();
+        const existingUser = await checkRequest
             .input("email", sql.VarChar, email)
             .query(`SELECT id FROM Users WHERE email = @email`);
 
@@ -26,8 +26,9 @@ exports.registerUser = async (req, res) => {
         // 🔒 Hash password
         const hashedPassword = await bcrypt.hash(password, 10);
 
-        // ➕ Insert new user
-        await request
+        // ➕ Insert new user (fresh request)
+        const insertRequest = pool.request();
+        await insertRequest
             .input("username", sql.VarChar, username)
             .input("email", sql.VarChar, email)
             .input("password", sql.VarChar, hashedPassword)
@@ -45,7 +46,6 @@ exports.registerUser = async (req, res) => {
     }
 };
 
-
 // Login User
 exports.loginUser = async (req, res) => {
     const { email, password } = req.body;
@@ -55,10 +55,10 @@ exports.loginUser = async (req, res) => {
     }
 
     try {
-        const pool = await poolPromise; // ✅ Use poolPromise properly
-        const request = pool.request();
+        const pool = await poolPromise;
 
-        // Fetch user by email
+        // 🔍 Fetch user by email
+        const request = pool.request();
         const result = await request
             .input("email", sql.VarChar, email)
             .query(`SELECT * FROM Users WHERE email = @email`);
@@ -69,15 +69,15 @@ exports.loginUser = async (req, res) => {
             return res.status(400).json({ error: "❌ Invalid credentials" });
         }
 
-        // Compare password
+        // 🔑 Compare password
         const isMatch = await bcrypt.compare(password, user.password);
         if (!isMatch) {
             return res.status(400).json({ error: "❌ Invalid credentials" });
         }
 
-        // Create JWT token
+        // 🪙 Create JWT token
         const token = jwt.sign(
-            { id: user.id, username: user.username },
+            { id: user.id, username: user.username, role: user.role },
             process.env.JWT_SECRET,
             { expiresIn: "1h" }
         );
