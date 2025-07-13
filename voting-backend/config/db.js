@@ -1,12 +1,21 @@
-const { Pool } = require("pg");
+const sql = require("mssql");
 
-const pool = new Pool({
-  connectionString: process.env.DATABASE_URL,
-  ssl: {
-    rejectUnauthorized: false,
-  },
+const config = {
+    user: process.env.DB_USER,
+    password: process.env.DB_PASSWORD,
+    server: process.env.DB_SERVER,
+    database: process.env.DB_NAME,
+    options: {
+        encrypt: false,
+        trustServerCertificate: true
+    }
+};
+
+const pool = new sql.ConnectionPool(config);
+const poolConnect = pool.connect();
+
+pool.on("error", err => {
+    console.error("❌ SQL Server Error:", err);
 });
 
-module.exports = {
-  query: (text, params) => pool.query(text, params),
-};
+module.exports = { sql, pool, poolConnect };

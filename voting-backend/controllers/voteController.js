@@ -1,5 +1,6 @@
 const { ethers } = require("ethers");
-const votingContract = require("../config/contract"); // Import your deployed contract
+const { pool, sql, poolConnect } = require("../config/db");
+const votingContract = require("../config/contract");
 
 // Cast a vote
 exports.castVote = async (req, res) => {
@@ -13,6 +14,19 @@ exports.castVote = async (req, res) => {
         await tx.wait(); // Wait for confirmation
 
         console.log(`✅ User ${req.user.id} voted for candidate ${candidateId} (TxHash: ${tx.hash})`);
+
+        // Log vote in SQL Server
+        await poolConnect;
+        const request = pool.request();
+        await request
+            .input("userId", sql.Int, req.user.id)
+            .input("candidateId", sql.Int, candidateId)
+            .input("transactionHash", sql.VarChar, tx.hash)
+            .query(`
+                INSERT INTO Votes (userId, candidateId, transactionHash)
+                VALUES (@userId, @candidateId, @transactionHash)
+            `);
+
         res.status(200).json({
             message: "✅ Vote cast successfully",
             transactionHash: tx.hash

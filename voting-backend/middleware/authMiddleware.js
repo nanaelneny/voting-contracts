@@ -1,31 +1,20 @@
 const jwt = require("jsonwebtoken");
-const secretKey = process.env.JWT_SECRET || "supersecretkey"; // Fallback to env var
 
-// ✅ Verify JWT token
 exports.verifyToken = (req, res, next) => {
-    const authHeader = req.headers.authorization;
+    const token = req.headers["authorization"];
+    if (!token) return res.status(401).json({ error: "No token provided" });
 
-    if (!authHeader || !authHeader.startsWith("Bearer ")) {
-        return res.status(401).json({ message: "❌ Access denied. No token provided." });
-    }
+    jwt.verify(token, process.env.JWT_SECRET, (err, decoded) => {
+        if (err) return res.status(401).json({ error: "Invalid token" });
 
-    const token = authHeader.split(" ")[1]; // Extract token from "Bearer <token>"
-
-    try {
-        const decoded = jwt.verify(token, secretKey);
-        req.user = decoded; // Attach user info to request
+        req.user = decoded;
         next();
-    } catch (error) {
-        console.error("❌ Invalid token:", error);
-        res.status(401).json({ message: "❌ Invalid or expired token." });
-    }
+    });
 };
 
-// ✅ Check if user is admin
 exports.isAdmin = (req, res, next) => {
-    if (req.user && req.user.role === "admin") {
-        next();
-    } else {
-        return res.status(403).json({ message: "❌ Access denied. Admins only." });
+    if (req.user.role !== "admin") {
+        return res.status(403).json({ error: "Admin privileges required" });
     }
+    next();
 };
