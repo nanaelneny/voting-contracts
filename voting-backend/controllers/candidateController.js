@@ -1,4 +1,4 @@
-const { query } = require("../db");
+const { query } = require("../config/db");
 
 // Add a candidate
 exports.addCandidate = async (req, res) => {
