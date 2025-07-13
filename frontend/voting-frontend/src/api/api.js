@@ -1,10 +1,7 @@
 import axios from "axios";
 
 const API = axios.create({
-  baseURL: 
-    process.env.NODE_ENV === "production"
-      ? "/api" // 👈 your Render backend
-     : "http://localhost:5000/api", // 👈 your backend URL for local dev
+  baseURL: "/api", // Backend proxy in local dev
 });
 
 // Add token to headers if exists
