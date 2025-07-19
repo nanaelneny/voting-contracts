@@ -109,11 +109,10 @@ function App() {
       }
 
       // 🏆 Get winner if voting ended
-      if (ended) {
+            if (ended) {
         try {
-          // Set the winner (update logic if needed)
-          const winnerCandidate = await contract.getWinner();
-          setWinner(winnerCandidate.name);
+          const winnerName = await contract.getWinner();
+          setWinner(winnerName); // Correct: directly set winner
         } catch (err) {
           console.error("Error fetching winner:", err);
           setWinner("⚠️ Could not fetch winner");
@@ -121,6 +120,7 @@ function App() {
       } else {
         setWinner(null);
       }
+
     } catch (error) {
       console.error("Error fetching contract data:", error);
     }
