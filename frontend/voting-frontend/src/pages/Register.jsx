@@ -1,16 +1,18 @@
 import React from "react";
 import { useNavigate } from "react-router-dom";
+import { walletRegister } from "../utils/walletAuth";
 
-export default function Register({ connectWallet }) {
+export default function Register() {
   const navigate = useNavigate();
 
   const handleRegister = async () => {
     try {
-      await connectWallet();
-      alert("✅ Wallet connected successfully!");
+      const { address } = await walletRegister();
+      alert(`✅ Wallet ${address} registered successfully!`);
       navigate("/"); // Redirect to dashboard
     } catch (err) {
-      alert("⚠️ Failed to connect wallet");
+      console.error(err);
+      alert("❌ Failed to register with wallet");
     }
   };
 

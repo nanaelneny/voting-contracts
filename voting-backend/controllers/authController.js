@@ -1,8 +1,12 @@
 const { sql, poolPromise } = require("../config/db");
 const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
+const { ethers } = require("ethers");
 
-// Register User
+// Store nonces temporarily (in-memory; use DB in production)
+const nonces = {};
+
+// Admin: Register User
 exports.registerUser = async (req, res) => {
     const { username, email, password } = req.body;
 
@@ -12,10 +16,7 @@ exports.registerUser = async (req, res) => {
 
     try {
         const pool = await poolPromise;
-
-        // 🔍 Check if email already exists
-        const checkRequest = pool.request();
-        const existingUser = await checkRequest
+        const existingUser = await pool.request()
             .input("email", sql.VarChar, email)
             .query(`SELECT id FROM Users WHERE email = @email`);
 
@@ -23,31 +24,26 @@ exports.registerUser = async (req, res) => {
             return res.status(400).json({ error: "❌ Email already exists" });
         }
 
-        // 🔒 Hash password
         const hashedPassword = await bcrypt.hash(password, 10);
 
-        // ➕ Insert new user (fresh request)
-        const insertRequest = pool.request();
-        await insertRequest
+        await pool.request()
             .input("username", sql.VarChar, username)
             .input("email", sql.VarChar, email)
             .input("password", sql.VarChar, hashedPassword)
             .input("role", sql.VarChar, "admin")
             .query(`
                 INSERT INTO Users (username, email, password, role) 
-                OUTPUT Inserted.id
                 VALUES (@username, @email, @password, @role)
             `);
 
-        console.log("✅ User registered successfully");
-        res.status(201).json({ message: "✅ User registered successfully" });
+        res.status(201).json({ message: "✅ Admin registered successfully" });
     } catch (err) {
-        console.error("❌ Error registering user:", err);
+        console.error("❌ Error registering admin:", err);
         res.status(500).json({ error: "❌ Server error" });
     }
 };
 
-// Login User
+// Admin: Login User
 exports.loginUser = async (req, res) => {
     const { email, password } = req.body;
 
@@ -57,10 +53,7 @@ exports.loginUser = async (req, res) => {
 
     try {
         const pool = await poolPromise;
-
-        // 🔍 Fetch user by email
-        const request = pool.request();
-        const result = await request
+        const result = await pool.request()
             .input("email", sql.VarChar, email)
             .query(`SELECT * FROM Users WHERE email = @email`);
 
@@ -70,23 +63,69 @@ exports.loginUser = async (req, res) => {
             return res.status(400).json({ error: "❌ Invalid credentials" });
         }
 
-        // 🔑 Compare password
         const isMatch = await bcrypt.compare(password, user.password);
         if (!isMatch) {
             return res.status(400).json({ error: "❌ Invalid credentials" });
         }
 
-        // 🪙 Create JWT token
         const token = jwt.sign(
             { id: user.id, username: user.username, role: user.role },
             process.env.JWT_SECRET,
-            { expiresIn: "1h" }
+            { expiresIn: "2h" }
         );
 
-        console.log("✅ User logged in successfully");
         res.json({ message: "✅ Login successful", token });
     } catch (err) {
-        console.error("❌ Error logging in:", err);
+        console.error("❌ Error logging in admin:", err);
+        res.status(500).json({ error: "❌ Server error" });
+    }
+};
+
+// Voter: Get Nonce
+exports.getNonce = (req, res) => {
+    const { address } = req.query;
+    if (!address) {
+        return res.status(400).json({ error: "Wallet address is required" });
+    }
+
+    const nonce = Math.floor(Math.random() * 1000000).toString();
+    nonces[address] = nonce;
+
+    res.json({ nonce });
+};
+
+// Voter: Wallet Login
+exports.loginWithWallet = async (req, res) => {
+    const { address, signature } = req.body;
+
+    if (!address || !signature) {
+        return res.status(400).json({ error: "Wallet address and signature required" });
+    }
+
+    const nonce = nonces[address];
+    if (!nonce) {
+        return res.status(400).json({ error: "Nonce not found. Please request a new one." });
+    }
+
+    try {
+        const message = `Login to Blockchain Voting System. Nonce: ${nonce}`;
+        const recoveredAddress = ethers.utils.verifyMessage(message, signature);
+
+        if (recoveredAddress.toLowerCase() !== address.toLowerCase()) {
+            return res.status(401).json({ error: "Signature verification failed" });
+        }
+
+        // Issue JWT token
+        const token = jwt.sign(
+            { wallet: address, role: "voter" }, // attach role
+            process.env.JWT_SECRET,
+            { expiresIn: "2h" }
+        );
+
+        delete nonces[address]; // Prevent reuse of nonce
+        res.json({ message: "✅ Wallet login successful", token });
+    } catch (err) {
+        console.error("❌ Wallet login error:", err);
         res.status(500).json({ error: "❌ Server error" });
     }
 };

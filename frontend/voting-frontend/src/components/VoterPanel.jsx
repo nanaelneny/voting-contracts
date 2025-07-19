@@ -1,5 +1,5 @@
 /* eslint-disable no-unused-vars */
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import LiveResultsChart from "./LiveResultsChart";
 
 function VoterPanel({
@@ -11,13 +11,6 @@ function VoterPanel({
   fetchContractData,
 }) {
   const [txPending, setTxPending] = useState(false); // Track vote transaction state
-
-  // ✅ Fetch winner if voting ended and winner not yet loaded
-  useEffect(() => {
-    if (votingStatus.ended && !winner) {
-      fetchContractData();
-    }
-  }, [votingStatus.ended, winner, fetchContractData]);
 
   const handleVote = async (candidateId) => {
     if (!votingStatus.started || votingStatus.ended) {
@@ -43,14 +36,11 @@ function VoterPanel({
 
   return (
     <div className="mt-6">
-      {/* ✅ Winner display */}
-      {votingStatus.ended && (
+      {winner && votingStatus.ended ? (
         <div className="p-4 rounded bg-green-700 text-white text-center font-bold">
-          🏆 Winner: {winner || "Fetching..."}
+          🏆 Winner: {winner}
         </div>
-      )}
-
-      {!votingStatus.ended && (
+      ) : (
         <>
           <h3 className="text-lg font-bold mb-2">🗳️ Candidates</h3>
           <ul className="space-y-2">
