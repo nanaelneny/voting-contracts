@@ -14,3 +14,26 @@ export const fetchElections = async () => {
     throw error;
   }
 };
+
+// ✅ Add candidate to an election
+export const addCandidateToElection = async (electionId, candidateData) => {
+  try {
+    const response = await fetch(`${API_URL}/${electionId}/candidates`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(candidateData), // e.g. { name: "Candidate A" }
+    });
+
+    if (!response.ok) {
+      throw new Error("Failed to add candidate");
+    }
+
+    return await response.json();
+  } catch (error) {
+    console.error("Error adding candidate:", error);
+    throw error;
+  }
+};
+

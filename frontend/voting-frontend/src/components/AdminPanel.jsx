@@ -7,7 +7,8 @@ function AdminPanel({
   fetchContractData,
   setLoading,
   loading,
-  setWinner
+  setWinner,
+  selectedElectionId // ✅ This should come from parent
 }) {
   const [candidateName, setCandidateName] = useState("");
 
@@ -19,7 +20,7 @@ function AdminPanel({
     }
     try {
       setLoading(true);
-      const tx = await votingContract.addCandidate(candidateName);
+      const tx = await votingContract.addCandidate(selectedElectionId, candidateName); // ✅ Pass electionId
       await tx.wait();
       alert(`✅ Candidate "${candidateName}" added successfully!`);
       setCandidateName("");
@@ -37,7 +38,7 @@ function AdminPanel({
     if (!window.confirm("⚠️ Are you sure you want to start voting?")) return;
     try {
       setLoading(true);
-      const tx = await votingContract.startVoting();
+      const tx = await votingContract.startVoting(selectedElectionId); // ✅ Pass electionId
       await tx.wait();
       alert("✅ Voting started successfully!");
       await fetchContractData();
@@ -54,34 +55,16 @@ function AdminPanel({
     if (!window.confirm("⚠️ Are you sure you want to end voting?")) return;
     try {
       setLoading(true);
-      const tx = await votingContract.endVoting();
+      const tx = await votingContract.endVoting(selectedElectionId); // ✅ Pass electionId
       await tx.wait();
       alert("✅ Voting ended successfully!");
-      const winnerName = await votingContract.getWinner();
+      const winnerName = await votingContract.getWinner(selectedElectionId); // ✅ Pass electionId
       console.log("🎯 Winner from contract:", winnerName);
       setWinner(winnerName);
       await fetchContractData();
     } catch (error) {
       console.error("Error ending voting:", error);
       alert("⚠️ Failed to end voting.");
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  // ✅ Reset Election
-  const resetElection = async () => {
-    if (!window.confirm("⚠️ Are you sure you want to reset the election?")) return;
-    try {
-      setLoading(true);
-      const tx = await votingContract.resetElection();
-      await tx.wait();
-      setWinner(null);
-      alert("✅ Election reset successfully!");
-      await fetchContractData();
-    } catch (error) {
-      console.error("Error resetting election:", error);
-      alert("⚠️ Failed to reset election.");
     } finally {
       setLoading(false);
     }
@@ -137,17 +120,6 @@ function AdminPanel({
           }`}
         >
           {loading && votingStatus.started && !votingStatus.ended ? "Ending..." : "End Voting"}
-        </button>
-        <button
-          onClick={resetElection}
-          disabled={loading || !votingStatus.ended}
-          className={`w-full px-4 py-2 rounded text-white ${
-            !votingStatus.ended
-              ? "bg-gray-500 cursor-not-allowed"
-              : "bg-yellow-600 hover:bg-yellow-700"
-          }`}
-        >
-          {loading && votingStatus.ended ? "Resetting..." : "Reset Election"}
         </button>
       </div>
     </div>

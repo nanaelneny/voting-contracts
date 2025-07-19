@@ -7,9 +7,9 @@ const API_URL = "http://localhost:5000/api/auth"; // Change if needed
 export async function walletLogin() {
   if (!window.ethereum) throw new Error("MetaMask is not installed");
 
-  const provider = new ethers.providers.Web3Provider(window.ethereum);
+  const provider = new ethers.BrowserProvider(window.ethereum); // ✅ Ethers v6
   await provider.send("eth_requestAccounts", []);
-  const signer = provider.getSigner();
+  const signer = await provider.getSigner();
   const address = await signer.getAddress();
 
   // Fetch nonce from backend
@@ -36,9 +36,9 @@ export async function walletLogin() {
 export async function walletRegister() {
   if (!window.ethereum) throw new Error("MetaMask is not installed");
 
-  const provider = new ethers.providers.Web3Provider(window.ethereum);
+  const provider = new ethers.BrowserProvider(window.ethereum); // ✅ Updated for Ethers v6
   await provider.send("eth_requestAccounts", []);
-  const signer = provider.getSigner();
+  const signer = await provider.getSigner();
   const address = await signer.getAddress();
 
   // Register user on backend

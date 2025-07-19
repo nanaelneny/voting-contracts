@@ -1,15 +1,16 @@
 const express = require("express");
 const router = express.Router();
 const voteController = require("../controllers/voteController");
-const { verifyToken, isVoter } = require("../middleware/authMiddleware");
+const { verifyToken, isAdmin } = require("../middleware/authMiddleware"); // ✅ Fix: added isAdmin
 
-// Cast a vote (only voter can do this)
-router.post("/cast", verifyToken, isVoter, voteController.castVote);
+// Cast a vote
+router.post("/cast", verifyToken, voteController.castVote);
 
-// View votes (admin or voter)
+// Get all votes for a specific election
 router.get("/election/:election_id", verifyToken, voteController.getVotesByElection);
 
-// Count votes (admin only)
+// Get vote counts for each candidate in an election (admin only)
 router.get("/election/:election_id/count", verifyToken, isAdmin, voteController.countVotesByElection);
 
 module.exports = router;
+
