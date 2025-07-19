@@ -15,31 +15,31 @@ for %%p in (3000 5000 8545) do (
 
 REM 🗑 Clean Hardhat artifacts
 echo 🗑 Cleaning blockchain artifacts...
-cd backend
+cd voting-backend
 del /Q build >nul 2>&1
 del /Q cache >nul 2>&1
 cd ..
 
 REM 🔥 Restart Hardhat node
 echo 🚀 Starting Hardhat blockchain...
-start cmd /k "cd backend && npx hardhat node --hostname 0.0.0.0"
+start cmd /k "cd voting-backend && npx hardhat node --hostname 0.0.0.0"
 
 REM ⏳ Wait for Hardhat to start
 timeout /t 5 >nul
 
 REM 📦 Deploy contracts
 echo 🚀 Deploying smart contracts...
-cd backend
+cd voting-backend
 npx hardhat run scripts/deploy.js --network localhost
 cd ..
 
 REM 🖥 Start backend server
 echo 🌐 Starting backend API server...
-start cmd /k "cd backend && npm run dev"
+start cmd /k "cd voting-backend && npm run dev"
 
 REM 💻 Start frontend server
 echo 🌐 Starting frontend...
-start cmd /k "cd frontend && HOST=0.0.0.0 npm start"
+start cmd /k "cd voting-frontend && HOST=0.0.0.0 npm start"
 
 echo ✅ Voting System reset and running!
 pause
