@@ -1,10 +1,12 @@
 /* eslint-disable react-hooks/exhaustive-deps */
 import { useEffect, useState } from "react";
-import { BrowserProvider, Contract, getAddress } from "ethers";
-import VotingContract from "./contracts/Voting.json";
+import { BrowserProvider, Contract} from "ethers";
+import VotingABI from "./contracts/Voting.json";
 import contractAddress from "./contracts/contractAddress.json";
 import React from "react";
 import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
+import AdminPanel from "./components/AdminPanel";
+
 
 
 import Header from "./components/Header";
@@ -20,24 +22,28 @@ function App() {
   const [currentAccount, setCurrentAccount] = useState(null);
   const [votingStatus, setVotingStatus] = useState({ started: false, ended: false });
   const [adminAddress, setAdminAddress] = useState(null);
-  const [totalVotes, setTotalVotes] = useState(0);
   const [hasVoted, setHasVoted] = useState(false);
   const [txPending, setTxPending] = useState(false);
   // eslint-disable-next-line no-unused-vars
   const [provider, setProvider] = useState(null);
   // eslint-disable-next-line no-unused-vars
   const [signer, setSigner] = useState(null);
+  const [isAdminUser, setIsAdminUser] = useState(false);
 
-  // ✅ Check if current user is admin
-  const isAdmin = () => {
+
+useEffect(() => {
+  if (currentAccount && adminAddress) {
     try {
-      if (!currentAccount || !adminAddress) return false;
-      return getAddress(currentAccount) === getAddress(adminAddress);
+      const result = currentAccount.toLowerCase() === adminAddress.toLowerCase();
+      setIsAdminUser(result);
+      console.log("👤 Account:", currentAccount);
+      console.log("👑 Admin:", adminAddress);
+      console.log("🛡 Admin Check:", result);
     } catch {
-      return false;
+      setIsAdminUser(false);
     }
-  };
-
+  }
+}, [currentAccount, adminAddress]);
   // 🔌 Connect wallet
   const connectWallet = async () => {
     if (currentAccount) return; // Already connected
@@ -59,7 +65,7 @@ function App() {
 
       const contract = new Contract(
         contractAddress.address,
-        VotingContract.abi,
+        VotingABI.abi,
         signerInstance
       );
       setVotingContract(contract);
@@ -71,7 +77,7 @@ function App() {
         if (!accounts || accounts.length === 0) {
           window.location.reload();
         } else {
-          const newAccount = accounts[0].toLowerCase();
+          const newAccount = accounts[0];
           if (newAccount !== currentAccount) {
             setCurrentAccount(newAccount);
             fetchContractData(contract);
@@ -84,47 +90,57 @@ function App() {
   };
 
   // 📦 Fetch contract data
-  const fetchContractData = async (contract) => {
-    try {
-      const results = await contract.getResults();
-      const started = await contract.votingStarted();
-      const ended = await contract.votingEnded();
-      const admin = await contract.admin();
+      const fetchContractData = async (contract) => {
+  if (!contract) return;
 
-      setCandidates(results);
-      setVotingStatus({ started, ended });
-      setAdminAddress(admin.toLowerCase());
+  try {
+    console.log("🟡 Skipping candidate count check...");
+    setCandidates([]); // Start with an empty candidate list
 
-      // Total votes
-      const totalVotesCount = results.reduce(
-        (sum, candidate) => sum + Number(candidate.voteCount),
-        0
-      );
-      setTotalVotes(totalVotesCount);
+    console.log("🟡 Fetching votingStarted...");
+    const started = await contract.votingStarted();
+    console.log("✅ votingStarted:", started);
 
-      // Check if user has voted
-      if (currentAccount) {
-        const voted = await contract.hasVoted(currentAccount);
-        setHasVoted(voted);
-      }
+    console.log("🟡 Fetching votingEnded...");
+    const ended = await contract.votingEnded();
+    console.log("✅ votingEnded:", ended);
 
-      // 🏆 Get winner if voting ended
-            if (ended) {
-        try {
-          const winnerName = await contract.getWinner();
-          setWinner(winnerName); // Correct: directly set winner
-        } catch (err) {
-          console.error("Error fetching winner:", err);
-          setWinner("⚠️ Could not fetch winner");
-        }
-      } else {
-        setWinner(null);
-      }
+    console.log("🟡 Fetching admin...");
+    const admin = await contract.admin();
+    console.log("✅ Admin:", admin);
 
-    } catch (error) {
-      console.error("Error fetching contract data:", error);
+    setVotingStatus({ started, ended });
+    setAdminAddress(admin.toLowerCase());
+
+    if (currentAccount) {
+      console.log("🟡 Checking if user has voted...");
+      const voted = await contract.hasVoted(currentAccount);
+      console.log("✅ hasVoted:", voted);
+      setHasVoted(voted);
     }
-  };
+
+    if (ended) {
+      try {
+        console.log("🟡 Fetching winner...");
+        const winnerName = await contract.getWinner();
+        console.log("✅ Winner:", winnerName);
+        setWinner(winnerName);
+      } catch (err) {
+        console.error("❌ Error fetching winner:", err);
+        setWinner("⚠️ Could not fetch winner");
+      }
+    } else {
+      setWinner(null);
+    }
+
+    console.log("✅ Admin panel data fetched (no candidate count).");
+  } catch (error) {
+    console.error("❌ Error fetching contract data:", error);
+  }
+};
+
+
+
 
   // 🔁 Connect wallet on mount
   useEffect(() => {
@@ -136,7 +152,7 @@ function App() {
       <Header
         currentAccount={currentAccount}
         connectWallet={connectWallet}
-        isAdmin={isAdmin}
+        isAdmin={isAdminUser}
       />
       <Routes>
         {/* Auth routes */}
@@ -147,6 +163,7 @@ function App() {
         <Route
           path="/"
           element={
+            <>
             <Dashboard
               currentAccount={currentAccount}
               connectWallet={connectWallet}
@@ -154,8 +171,7 @@ function App() {
               candidates={candidates}
               winner={winner}
               votingStatus={votingStatus}
-              totalVotes={totalVotes}
-              isAdmin={isAdmin}
+              isAdmin={isAdminUser}
               txPending={txPending}
               setTxPending={setTxPending}
               hasVoted={hasVoted}
@@ -164,6 +180,19 @@ function App() {
               loading={loading}
               setWinner={setWinner}
             />
+
+            {isAdminUser && (
+              <AdminPanel
+                votingContract={votingContract}
+                votingStatus={votingStatus}
+                fetchContractData={() => fetchContractData(votingContract)}
+                setLoading={setLoading}
+                loading={loading}
+                setWinner={setWinner}
+              />
+            )}
+          </>
+
           }
         />
       </Routes>

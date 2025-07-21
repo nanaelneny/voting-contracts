@@ -1,43 +1,38 @@
-// scripts/deploy.js
-const fs = require("fs");
-const path = require("path");
+const fs = require('fs');
+const path = require('path');
 
 async function main() {
-    const [deployer] = await ethers.getSigners();
-    console.log("Deploying contracts with the account:", deployer.address);
+  const Voting = await ethers.getContractFactory("Voting");
+  const voting = await Voting.deploy();
+  await voting.waitForDeployment();
 
-    const Voting = await ethers.getContractFactory("Voting");
-    const voting = await Voting.deploy();
+  const address = await voting.getAddress();
+  console.log(`✅ Voting contract deployed to: ${address}`);
 
-    // ✅ Wait for deployment (Ethers v6)
-    await voting.waitForDeployment();
+  // Save ABI and address to frontend/src/contracts/
+  const frontendContractsDir = path.join(__dirname, '..', 'frontend', 'src', 'contracts');
 
-    // ✅ Get deployed contract address (Ethers v6 uses .target)
-    console.log("Voting contract deployed to:", voting.target);
+  if (!fs.existsSync(frontendContractsDir)) {
+    fs.mkdirSync(frontendContractsDir, { recursive: true });
+  }
 
-    // Save contract address and ABI for frontend
-    const frontendDir = path.join(__dirname, "../frontend/voting-frontend/src/contracts");
-    if (!fs.existsSync(frontendDir)) {
-        fs.mkdirSync(frontendDir, { recursive: true });
-    }
+  // Write address
+  fs.writeFileSync(
+    path.join(frontendContractsDir, 'contractAddress.json'),
+    JSON.stringify({ Voting: address }, null, 2)
+  );
 
-    // Save address
-    fs.writeFileSync(
-        path.join(frontendDir, "contractAddress.json"),
-        JSON.stringify({ address: voting.target }, null, 2) // ✅ use .target here
-    );
+  // Write ABI
+  const artifact = await artifacts.readArtifact("Voting");
+  fs.writeFileSync(
+    path.join(frontendContractsDir, 'Voting.json'),
+    JSON.stringify(artifact, null, 2)
+  );
 
-    // Save ABI
-    const artifact = await hre.artifacts.readArtifact("Voting");
-    fs.writeFileSync(
-        path.join(frontendDir, "Voting.json"),
-        JSON.stringify(artifact, null, 2)
-    );
-
-    console.log("✅ Contract address & ABI saved for frontend.");
+  console.log('📦 ABI and contract address saved to frontend/src/contracts');
 }
 
 main().catch((error) => {
-    console.error(error);
-    process.exitCode = 1;
+  console.error(error);
+  process.exitCode = 1;
 });

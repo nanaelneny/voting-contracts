@@ -11,7 +11,7 @@ function Dashboard({
   winner,
   votingStatus,
   totalVotes,
-  isAdmin,
+  isAdminUser,
   txPending,
   setTxPending,
   hasVoted,
@@ -26,7 +26,7 @@ function Dashboard({
         {currentAccount ? (
           <>
             <p className="mb-2 text-green-300">
-              ✅ Connected: {currentAccount} {isAdmin() && "(Admin)"}
+              ✅ Connected: {currentAccount} {isAdminUser && "(Admin)"}
             </p>
             {txPending && (
               <p className="text-yellow-300 font-semibold mt-2">
@@ -65,7 +65,7 @@ function Dashboard({
             />
 
             {/* Admin Panel */}
-            {isAdmin() && (
+            {isAdminUser && (
               <AdminPanel
                 votingContract={votingContract}
                 votingStatus={votingStatus}

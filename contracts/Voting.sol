@@ -13,13 +13,13 @@ contract Voting {
     Candidate[] public candidates;
     mapping(address => uint) public hasVotedRound;
     uint public electionRound = 1;
-    address[] public voters; // 🆕 Track voters for resetting
+    address[] public voters;
 
     bool public votingStarted;
     bool public votingEnded;
     string public winner;
 
-    // 🆕 Events
+    // Events
     event CandidateAdded(uint candidateId, string name);
     event VotingStarted(uint round);
     event VotingEnded(uint round, string winner);
@@ -27,7 +27,6 @@ contract Voting {
     event ElectionReset(uint newRound);
     event CandidateDebug(string name, uint votes);
     event WinnerSelected(string winner, uint votes);
-
 
     constructor() {
         admin = msg.sender;
@@ -38,32 +37,28 @@ contract Voting {
         _;
     }
 
-    // Add a new candidate (only before voting starts)
     function addCandidate(string memory _name) public onlyAdmin {
         require(!votingStarted, "Cannot add candidates after voting starts");
         candidates.push(Candidate(candidates.length, _name, 0));
-        emit CandidateAdded(candidates.length - 1, _name); // 🆕 Emit event
+        emit CandidateAdded(candidates.length - 1, _name);
     }
 
-    // Start the voting process
     function startVoting() public onlyAdmin {
         require(!votingStarted, "Voting has already started");
         require(candidates.length > 0, "Add at least one candidate first");
         votingStarted = true;
         votingEnded = false;
-        emit VotingStarted(electionRound); // 🆕 Emit event
+        emit VotingStarted(electionRound);
     }
 
-    // End the voting process and calculate the winner
     function endVoting() public onlyAdmin {
         require(votingStarted, "Voting has not started");
         require(!votingEnded, "Voting already ended");
         votingEnded = true;
         calculateWinner();
-        emit VotingEnded(electionRound, winner); // 🆕 Emit event
+        emit VotingEnded(electionRound, winner);
     }
 
-    // Cast a vote for a candidate
     function vote(uint _candidateId) public {
         require(votingStarted, "Voting has not started");
         require(!votingEnded, "Voting has ended");
@@ -72,59 +67,58 @@ contract Voting {
 
         candidates[_candidateId].voteCount += 1;
         hasVotedRound[msg.sender] = electionRound;
-        voters.push(msg.sender); // 🆕 Track voter for later reset
-
-        emit VoteCast(msg.sender, _candidateId, electionRound); // 🆕 Emit event
+        voters.push(msg.sender);
+        emit VoteCast(msg.sender, _candidateId, electionRound);
     }
 
-    // Internal function to calculate the winner
     function calculateWinner() internal {
-    uint highestVotes = 0;
-    string memory winningName;
+        uint highestVotes = 0;
+        string memory winningName;
 
-    for (uint i = 0; i < candidates.length; i++) {
-        emit CandidateDebug(candidates[i].name, candidates[i].voteCount); // 🆕
-        if (candidates[i].voteCount > highestVotes) {
-            highestVotes = candidates[i].voteCount;
-            winningName = candidates[i].name;
+        for (uint i = 0; i < candidates.length; i++) {
+            emit CandidateDebug(candidates[i].name, candidates[i].voteCount);
+            if (candidates[i].voteCount > highestVotes) {
+                highestVotes = candidates[i].voteCount;
+                winningName = candidates[i].name;
+            }
         }
+
+        winner = winningName;
+        emit WinnerSelected(winner, highestVotes);
     }
 
-    winner = winningName;
-    emit WinnerSelected(winner, highestVotes); // 🆕
-    }
-
-
-    // Get all candidates and their vote counts
     function getResults() public view returns (Candidate[] memory) {
         return candidates;
     }
 
-    // Get the winner after voting ends
     function getWinner() public view returns (string memory) {
         require(votingEnded, "Voting is not yet ended");
         return winner;
     }
 
-    // 🆕 Fully reset the election for a fresh start
     function resetElection() public onlyAdmin {
-    require(votingEnded, "Cannot reset while voting is active");
-
-    // Clear all candidates
-    delete candidates;
-
-    // Reset voting state
-    votingStarted = false;
-    votingEnded = false;
-    winner = "";
-
-    // Increment election round
-    electionRound += 1;
-
-    // Clear voter statuses
-    delete voters; // Clear voters array
-
-    emit ElectionReset(electionRound); // 🆕 Emit event
+        require(votingEnded, "Cannot reset while voting is active");
+        delete candidates;
+        votingStarted = false;
+        votingEnded = false;
+        winner = "";
+        electionRound += 1;
+        delete voters;
+        emit ElectionReset(electionRound);
     }
 
+    // 🆕 Indexed fetch functions
+    function getCandidateCount() public view returns (uint) {
+        return candidates.length;
+    }
+
+    function getCandidateByIndex(uint index)
+        public
+        view
+        returns (uint id, string memory name, uint voteCount)
+    {
+        require(index < candidates.length, "Invalid index");
+        Candidate storage candidate = candidates[index];
+        return (candidate.id, candidate.name, candidate.voteCount);
+    }
 }
