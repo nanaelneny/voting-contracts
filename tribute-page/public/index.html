@@ -1,0 +1,85 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>In Loving Memory</title>
+  <meta name="description" content="A dignified space to share tributes." />
+  <meta property="og:title" content="In Loving Memory" />
+  <meta property="og:description" content="A dignified space to share tributes." />
+  <meta property="og:type" content="website" />
+  <meta property="og:image" content="/images/cover.jpg" />
+
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Playfair+Display:wght@500;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/styles.css" />
+</head>
+<body>
+  <header class="hero">
+    <div class="hero__image" id="heroImage" role="img" aria-label="Portrait of the deceased"></div>
+    <div class="hero__overlay"></div>
+    <div class="hero__content container">
+      <div class="badge">In Loving Memory</div>
+      <h1 id="deceasedName" class="hero__title">Honored Deceased</h1>
+      <p id="lifespan" class="hero__meta">—</p>
+      <p id="headline" class="hero__subtitle">A life of service and excellence.</p>
+    </div>
+  </header>
+
+  <main>
+    <section class="container section">
+      <h2 class="section__title">Gallery</h2>
+      <div id="gallery" class="gallery"></div>
+    </section>
+
+    <section class="container section">
+      <div class="section__header">
+        <h2 class="section__title">Share a Tribute</h2>
+        <p class="section__subtitle">Your words will be publicly visible.</p>
+      </div>
+
+      <form id="tributeForm" class="form" novalidate>
+        <div class="form__grid">
+          <div class="field">
+            <label class="label" for="name">Full name</label>
+            <input class="input" id="name" name="name" required maxlength="120" placeholder="e.g., Rt. Hon. John Smith" />
+          </div>
+          <div class="field">
+            <label class="label" for="title">Title/Role (optional)</label>
+            <input class="input" id="title" name="title" maxlength="120" placeholder="e.g., Minister of Finance" />
+          </div>
+          <div class="field">
+            <label class="label" for="organization">Organization (optional)</label>
+            <input class="input" id="organization" name="organization" maxlength="160" placeholder="e.g., Republic of Ghana" />
+          </div>
+        </div>
+        <div class="field">
+          <label class="label" for="message">Tribute message</label>
+          <textarea class="textarea" id="message" name="message" required maxlength="2000" rows="5" placeholder="Write your tribute..."></textarea>
+        </div>
+        <div class="actions">
+          <button id="submitBtn" class="button" type="submit">Post Tribute</button>
+          <div id="formStatus" class="status" aria-live="polite"></div>
+        </div>
+      </form>
+    </section>
+
+    <section class="container section">
+      <div class="section__header">
+        <h2 class="section__title">Tributes</h2>
+        <p class="section__subtitle"><span id="tributeCount">0</span> messages</p>
+      </div>
+      <div id="tributes" class="tributes"></div>
+    </section>
+  </main>
+
+  <footer class="footer">
+    <div class="container footer__inner">
+      <p>&copy; <span id="year"></span> In Loving Memory</p>
+    </div>
+  </footer>
+
+  <script type="module" src="/app.js"></script>
+</body>
+</html>
