@@ -2,27 +2,39 @@
 pragma solidity ^0.8.24;
 
 import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
-import {MerkleProof} from "@openzeppelin/contracts/utils/cryptography/MerkleProof.sol";
+import {ISemaphore} from "@semaphore-protocol/contracts/interfaces/ISemaphore.sol";
 
 /**
  * @title VotingV2
- * @notice Multi-election voting contract with on-chain voter eligibility.
+ * @notice Multi-election, anonymous voting contract using Semaphore zero-knowledge proofs.
  *
  * Changes from the diploma version (Voting.sol):
  *  - Many elections live in one contract, each keyed by an id, instead of a
  *    single election that gets reset and overwritten.
- *  - Only approved voters can vote. The admin publishes a Merkle root of the
- *    approved wallet addresses per election; each voter submits a proof that
- *    their address is in that list. Creating extra wallets no longer gives
- *    extra votes.
+ *  - Only registered voters can vote, and nobody can tell which voter cast
+ *    which ballot. Each election is a Semaphore group of "identity
+ *    commitments" (public values derived from a secret each voter keeps in
+ *    their browser). To vote, a voter proves in zero knowledge that they own
+ *    one of the commitments, without revealing which.
+ *  - The contract never looks at msg.sender when counting a vote, so the
+ *    transaction can be submitted by a relayer that pays the gas. The voter
+ *    needs no wallet or ETH, and the submitting account reveals nothing.
  *  - Voting opens and closes on fixed timestamps set when the election is
  *    created. Once voting opens, the admin cannot add candidates, change the
  *    voter list, end voting early, or reset/delete the election.
  *  - Ties are reported as ties instead of silently picking the first candidate.
  *
- * Privacy note: like the original, a vote is linked to the voter's wallet
- * address (pseudonymous, not anonymous). Removing that link is the planned
- * zero-knowledge extension.
+ * How a ballot is protected:
+ *  - scope = scopeOf(electionId). Each voter gets exactly one nullifier per
+ *    election, so a second vote is rejected. Because the scope includes the
+ *    chain id and this contract's address, nullifiers can't be linked across
+ *    elections or deployments.
+ *  - message = candidateId, which is bound into the proof, so whoever submits
+ *    the transaction cannot change the voter's choice.
+ *
+ * Known limitation: proofs are receipts. A voter could show someone their
+ * proof to demonstrate how they voted, so this does not stop vote-buying or
+ * coercion (it is not "receipt-free").
  */
 contract VotingV2 is Ownable {
     // ───────────────────────────── Types ─────────────────────────────
@@ -32,9 +44,9 @@ contract VotingV2 is Ownable {
         uint256 offchainId;   // matches Elections.id in the SQL database
         uint64 startTime;     // voting opens (inclusive)
         uint64 endTime;       // voting closes (exclusive)
-        bytes32 voterRoot;    // Merkle root of approved voter addresses
+        uint256 groupId;      // Semaphore group holding the voters' identity commitments
         uint32 candidateCount;
-        uint32 voterCount;    // size of the approved voter list (for turnout)
+        uint32 voterCount;    // number of registered voters (for turnout)
         uint256 totalVotes;
         bool finalized;
         bool cancelled;
@@ -49,21 +61,26 @@ contract VotingV2 is Ownable {
 
     // ──────────────────────────── Storage ────────────────────────────
 
+    ISemaphore public immutable semaphore;
+
     uint256 public electionCount;
     mapping(uint256 => Election) private _elections;
     mapping(uint256 => mapping(uint256 => Candidate)) private _candidates;
-    mapping(uint256 => mapping(address => bool)) public hasVoted;
     mapping(uint256 => uint256[]) private _winners;
+
+    /// @notice electionId => nullifier => used. Lets a voter check "have I voted?"
+    ///         by computing their own nullifier, without revealing who they are.
+    mapping(uint256 => mapping(uint256 => bool)) public nullifierUsed;
 
     uint32 public constant MAX_CANDIDATES = 50;
 
     // ──────────────────────────── Events ─────────────────────────────
 
-    event ElectionCreated(uint256 indexed electionId, uint256 indexed offchainId, string title, uint64 startTime, uint64 endTime);
+    event ElectionCreated(uint256 indexed electionId, uint256 indexed offchainId, string title, uint64 startTime, uint64 endTime, uint256 groupId);
     event CandidateAdded(uint256 indexed electionId, uint256 indexed candidateId, string name);
-    event VoterRootSet(uint256 indexed electionId, bytes32 root, uint32 voterCount);
+    event VotersAdded(uint256 indexed electionId, uint256 added, uint32 voterCount);
     event ElectionCancelled(uint256 indexed electionId);
-    event VoteCast(uint256 indexed electionId, address indexed voter, uint256 indexed candidateId);
+    event VoteCast(uint256 indexed electionId, uint256 indexed candidateId, uint256 nullifier);
     event ElectionFinalized(uint256 indexed electionId, uint256[] winners, uint256 winningVotes, uint256 totalVotes);
 
     // ──────────────────────────── Errors ─────────────────────────────
@@ -77,9 +94,11 @@ contract VotingV2 is Ownable {
     error NoCandidates();
     error NoVoterList();
     error AlreadyVoted();
-    error NotEligible();
+    error WrongScope();
 
-    constructor(address initialAdmin) Ownable(initialAdmin) {}
+    constructor(address initialAdmin, ISemaphore _semaphore) Ownable(initialAdmin) {
+        semaphore = _semaphore;
+    }
 
     // ─────────────────────────── Modifiers ───────────────────────────
 
@@ -96,7 +115,7 @@ contract VotingV2 is Ownable {
 
     // ───────────────────────── Admin: setup ──────────────────────────
 
-    /// @notice Create an election. Ids start at 1.
+    /// @notice Create an election and its Semaphore voter group. Ids start at 1.
     function createElection(
         string calldata title,
         uint256 offchainId,
@@ -112,8 +131,9 @@ contract VotingV2 is Ownable {
         e.offchainId = offchainId;
         e.startTime = startTime;
         e.endTime = endTime;
+        e.groupId = semaphore.createGroup(); // this contract is the group admin
 
-        emit ElectionCreated(electionId, offchainId, title, startTime, endTime);
+        emit ElectionCreated(electionId, offchainId, title, startTime, endTime, e.groupId);
     }
 
     function addCandidate(uint256 electionId, string calldata name)
@@ -137,19 +157,19 @@ contract VotingV2 is Ownable {
         }
     }
 
-    /// @notice Publish (or replace, before voting opens) the approved voter list.
-    /// @param root Merkle root built with @openzeppelin/merkle-tree over ["address"] leaves.
-    /// @param voterCount Number of addresses in the list (used for turnout figures).
-    function setVoterRoot(uint256 electionId, bytes32 root, uint32 voterCount)
+    /// @notice Register voters by their identity commitments. Only before voting opens;
+    ///         the voter list is frozen from then on. Duplicate commitments revert.
+    function addVoters(uint256 electionId, uint256[] calldata identityCommitments)
         external
         onlyOwner
         exists(electionId)
         inPhase(electionId, Phase.Setup)
     {
-        if (root == bytes32(0) || voterCount == 0) revert NoVoterList();
-        _elections[electionId].voterRoot = root;
-        _elections[electionId].voterCount = voterCount;
-        emit VoterRootSet(electionId, root, voterCount);
+        if (identityCommitments.length == 0) revert NoVoterList();
+        Election storage e = _elections[electionId];
+        semaphore.addMembers(e.groupId, identityCommitments);
+        e.voterCount += uint32(identityCommitments.length);
+        emit VotersAdded(electionId, identityCommitments.length, e.voterCount);
     }
 
     /// @notice Cancel an election that has not opened yet. Cannot be used once voting starts.
@@ -165,24 +185,28 @@ contract VotingV2 is Ownable {
 
     // ─────────────────────────── Voting ──────────────────────────────
 
-    /// @notice Cast a vote. `proof` shows msg.sender is on the approved voter list.
-    function vote(uint256 electionId, uint256 candidateId, bytes32[] calldata proof)
+    /// @notice Cast an anonymous vote. Anyone may submit the proof (normally the relayer);
+    ///         the proof itself is what authorizes the vote. proof.message is the candidate id.
+    function vote(uint256 electionId, ISemaphore.SemaphoreProof calldata proof)
         external
         exists(electionId)
         inPhase(electionId, Phase.Voting)
     {
         Election storage e = _elections[electionId];
         if (e.candidateCount == 0) revert NoCandidates();
-        if (e.voterRoot == bytes32(0)) revert NoVoterList();
-        if (hasVoted[electionId][msg.sender]) revert AlreadyVoted();
-        if (candidateId >= e.candidateCount) revert InvalidCandidate(candidateId);
-        if (!isEligible(electionId, msg.sender, proof)) revert NotEligible();
+        if (e.voterCount == 0) revert NoVoterList();
+        if (proof.scope != scopeOf(electionId)) revert WrongScope();
+        if (proof.message >= e.candidateCount) revert InvalidCandidate(proof.message);
+        if (nullifierUsed[electionId][proof.nullifier]) revert AlreadyVoted();
 
-        hasVoted[electionId][msg.sender] = true;
-        _candidates[electionId][candidateId].voteCount += 1;
+        // Reverts if the proof is invalid, the root isn't this group's, or the nullifier was used.
+        semaphore.validateProof(e.groupId, proof);
+
+        nullifierUsed[electionId][proof.nullifier] = true;
+        _candidates[electionId][proof.message].voteCount += 1;
         e.totalVotes += 1;
 
-        emit VoteCast(electionId, msg.sender, candidateId);
+        emit VoteCast(electionId, proof.message, proof.nullifier);
     }
 
     /// @notice Record the result once voting has closed. Anyone can call this,
@@ -209,6 +233,11 @@ contract VotingV2 is Ownable {
 
     // ──────────────────────────── Views ──────────────────────────────
 
+    /// @notice The Semaphore scope voters must prove against for this election.
+    function scopeOf(uint256 electionId) public view returns (uint256) {
+        return uint256(keccak256(abi.encode(block.chainid, address(this), electionId)));
+    }
+
     function phase(uint256 electionId) public view exists(electionId) returns (Phase) {
         Election storage e = _elections[electionId];
         if (e.cancelled) return Phase.Cancelled;
@@ -216,19 +245,6 @@ contract VotingV2 is Ownable {
         if (block.timestamp < e.startTime) return Phase.Setup;
         if (block.timestamp < e.endTime) return Phase.Voting;
         return Phase.Ended;
-    }
-
-    function isEligible(uint256 electionId, address voter, bytes32[] calldata proof)
-        public
-        view
-        exists(electionId)
-        returns (bool)
-    {
-        bytes32 root = _elections[electionId].voterRoot;
-        if (root == bytes32(0)) return false;
-        // Leaf format used by @openzeppelin/merkle-tree StandardMerkleTree (double hashed).
-        bytes32 leaf = keccak256(bytes.concat(keccak256(abi.encode(voter))));
-        return MerkleProof.verifyCalldata(proof, root, leaf);
     }
 
     function getElection(uint256 electionId) external view exists(electionId) returns (Election memory) {

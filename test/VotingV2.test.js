@@ -1,22 +1,29 @@
 const { expect } = require("chai");
 const { ethers } = require("hardhat");
 const { time, loadFixture } = require("@nomicfoundation/hardhat-toolbox/network-helpers");
-const { buildVoterTree } = require("../scripts/voterTree");
+const { Identity, Group } = require("@semaphore-protocol/core");
+const { deploySemaphore, proveVote } = require("./helpers/semaphore");
 
 const Phase = { Setup: 0, Voting: 1, Ended: 2, Finalized: 3, Cancelled: 4 };
 const HOUR = 3600;
 
-describe("VotingV2", function () {
+// A structurally valid but meaningless proof, for checks that fail before proof verification.
+const DUMMY_PROOF = { merkleTreeDepth: 1, merkleTreeRoot: 0, nullifier: 0, message: 0, scope: 0, points: Array(8).fill(0) };
+
+describe("VotingV2 (anonymous, Semaphore)", function () {
+  this.timeout(180_000); // each proof takes ~0.5s to generate
+
   async function deployFixture() {
-    const [admin, alice, bob, carol, outsider] = await ethers.getSigners();
-    const voting = await ethers.deployContract("VotingV2", [admin.address]);
-    return { voting, admin, alice, bob, carol, outsider };
+    const [admin, relayer, stranger] = await ethers.getSigners();
+    const semaphore = await deploySemaphore();
+    const voting = await ethers.deployContract("VotingV2", [admin.address, await semaphore.getAddress()]);
+    return { voting, semaphore, admin, relayer, stranger };
   }
 
-  // An election with 3 candidates and alice, bob, carol approved; still in Setup.
+  // Election 1: 3 candidates, 3 registered voters (alice, bob, carol); still in Setup.
   async function electionFixture() {
     const base = await deployFixture();
-    const { voting, alice, bob, carol } = base;
+    const { voting } = base;
     const now = await time.latest();
     const start = now + HOUR;
     const end = start + 2 * HOUR;
@@ -24,10 +31,16 @@ describe("VotingV2", function () {
     await voting.createElection("SRC Elections 2026", 3, start, end);
     await voting.addCandidates(1, ["Isaac", "Gloria", "Rachael"]);
 
-    const tree = buildVoterTree([alice.address, bob.address, carol.address]);
-    await voting.setVoterRoot(1, tree.root, tree.count);
+    // In the real app each identity is created in the voter's browser and only
+    // the commitment is sent to the admin.
+    const [alice, bob, carol] = [new Identity(), new Identity(), new Identity()];
+    const group = new Group([alice.commitment, bob.commitment, carol.commitment]);
+    await voting.addVoters(1, group.members);
 
-    return { ...base, tree, start, end, id: 1 };
+    const scope = await voting.scopeOf(1);
+    const prove = (identity, candidateId, s = scope, g = group) => proveVote(identity, g, candidateId, s);
+
+    return { ...base, alice, bob, carol, group, scope, prove, start, end };
   }
 
   async function openFixture() {
@@ -37,15 +50,16 @@ describe("VotingV2", function () {
   }
 
   describe("Election setup", function () {
-    it("creates elections with sequential ids starting at 1", async function () {
+    it("creates elections with sequential ids, each with its own Semaphore group", async function () {
       const { voting } = await loadFixture(deployFixture);
       const now = await time.latest();
-      await expect(voting.createElection("A", 10, now + HOUR, now + 2 * HOUR))
-        .to.emit(voting, "ElectionCreated")
-        .withArgs(1, 10, "A", now + HOUR, now + 2 * HOUR);
+      await expect(voting.createElection("A", 10, now + HOUR, now + 2 * HOUR)).to.emit(voting, "ElectionCreated");
       await voting.createElection("B", 11, now + HOUR, now + 2 * HOUR);
+
       expect(await voting.electionCount()).to.equal(2);
-      expect((await voting.getElection(2)).offchainId).to.equal(11);
+      const [a, b] = [await voting.getElection(1), await voting.getElection(2)];
+      expect(b.offchainId).to.equal(11);
+      expect(a.groupId).to.not.equal(b.groupId);
     });
 
     it("rejects bad time windows and empty titles", async function () {
@@ -69,33 +83,46 @@ describe("VotingV2", function () {
     it("rejects empty candidate names and caps the candidate count", async function () {
       const { voting } = await loadFixture(electionFixture);
       await expect(voting.addCandidate(1, "")).to.be.revertedWithCustomError(voting, "EmptyName");
-      const names = Array.from({ length: 47 }, (_, i) => `C${i}`);
-      await voting.addCandidates(1, names); // 3 + 47 = 50
+      await voting.addCandidates(1, Array.from({ length: 47 }, (_, i) => `C${i}`)); // 3 + 47 = 50
       await expect(voting.addCandidate(1, "One too many")).to.be.revertedWithCustomError(voting, "TooManyCandidates");
     });
 
-    it("rejects an empty voter list", async function () {
-      const { voting } = await loadFixture(electionFixture);
-      await expect(voting.setVoterRoot(1, ethers.ZeroHash, 3)).to.be.revertedWithCustomError(voting, "NoVoterList");
-      await expect(voting.setVoterRoot(1, ethers.id("x"), 0)).to.be.revertedWithCustomError(voting, "NoVoterList");
+    it("counts registered voters and rejects empty or duplicate registrations", async function () {
+      const { voting, alice } = await loadFixture(electionFixture);
+      expect((await voting.getElection(1)).voterCount).to.equal(3);
+
+      await expect(voting.addVoters(1, [])).to.be.revertedWithCustomError(voting, "NoVoterList");
+      await expect(voting.addVoters(1, [alice.commitment])).to.be.reverted; // already in the group
+
+      await expect(voting.addVoters(1, [new Identity().commitment]))
+        .to.emit(voting, "VotersAdded")
+        .withArgs(1, 1, 4);
     });
 
     it("reverts for elections that do not exist", async function () {
       const { voting } = await loadFixture(deployFixture);
       await expect(voting.getElection(0)).to.be.revertedWithCustomError(voting, "ElectionNotFound");
       await expect(voting.getCandidates(1)).to.be.revertedWithCustomError(voting, "ElectionNotFound");
+      await expect(voting.vote(1, DUMMY_PROOF)).to.be.revertedWithCustomError(voting, "ElectionNotFound");
     });
   });
 
   describe("Access control", function () {
     it("only the admin can create and configure elections", async function () {
-      const { voting, alice, tree } = await loadFixture(electionFixture);
+      const { voting, stranger } = await loadFixture(electionFixture);
       const now = await time.latest();
-      const v = voting.connect(alice);
-      await expect(v.createElection("X", 1, now + HOUR, now + 2 * HOUR)).to.be.revertedWithCustomError(voting, "OwnableUnauthorizedAccount");
-      await expect(v.addCandidate(1, "Me")).to.be.revertedWithCustomError(voting, "OwnableUnauthorizedAccount");
-      await expect(v.setVoterRoot(1, tree.root, 1)).to.be.revertedWithCustomError(voting, "OwnableUnauthorizedAccount");
-      await expect(v.cancelElection(1)).to.be.revertedWithCustomError(voting, "OwnableUnauthorizedAccount");
+      const v = voting.connect(stranger);
+      const err = "OwnableUnauthorizedAccount";
+      await expect(v.createElection("X", 1, now + HOUR, now + 2 * HOUR)).to.be.revertedWithCustomError(voting, err);
+      await expect(v.addCandidate(1, "Me")).to.be.revertedWithCustomError(voting, err);
+      await expect(v.addVoters(1, [new Identity().commitment])).to.be.revertedWithCustomError(voting, err);
+      await expect(v.cancelElection(1)).to.be.revertedWithCustomError(voting, err);
+    });
+
+    it("nobody but the contract can add members to the election's Semaphore group", async function () {
+      const { voting, semaphore, stranger } = await loadFixture(electionFixture);
+      const { groupId } = await voting.getElection(1);
+      await expect(semaphore.connect(stranger).addMember(groupId, new Identity().commitment)).to.be.reverted;
     });
   });
 
@@ -112,9 +139,9 @@ describe("VotingV2", function () {
     });
 
     it("admin cannot change candidates or the voter list once voting opens", async function () {
-      const { voting, tree } = await loadFixture(openFixture);
+      const { voting } = await loadFixture(openFixture);
       await expect(voting.addCandidate(1, "Late")).to.be.revertedWithCustomError(voting, "WrongPhase").withArgs(1, Phase.Voting);
-      await expect(voting.setVoterRoot(1, tree.root, 3)).to.be.revertedWithCustomError(voting, "WrongPhase");
+      await expect(voting.addVoters(1, [new Identity().commitment])).to.be.revertedWithCustomError(voting, "WrongPhase");
       await expect(voting.cancelElection(1)).to.be.revertedWithCustomError(voting, "WrongPhase");
     });
 
@@ -124,118 +151,144 @@ describe("VotingV2", function () {
     });
 
     it("a cancelled election cannot be voted in or finalized", async function () {
-      const { voting, alice, tree, start, end } = await loadFixture(electionFixture);
+      const { voting, relayer, alice, prove, start, end } = await loadFixture(electionFixture);
       await expect(voting.cancelElection(1)).to.emit(voting, "ElectionCancelled").withArgs(1);
       await time.increaseTo(start);
       expect(await voting.phase(1)).to.equal(Phase.Cancelled);
-      await expect(voting.connect(alice).vote(1, 0, tree.getProof(alice.address))).to.be.revertedWithCustomError(voting, "WrongPhase");
+      await expect(voting.connect(relayer).vote(1, await prove(alice, 0))).to.be.revertedWithCustomError(voting, "WrongPhase");
       await time.increaseTo(end);
       await expect(voting.finalize(1)).to.be.revertedWithCustomError(voting, "WrongPhase");
     });
   });
 
-  describe("Voting", function () {
-    it("lets an approved voter vote once and records it", async function () {
-      const { voting, alice, tree } = await loadFixture(openFixture);
-      await expect(voting.connect(alice).vote(1, 1, tree.getProof(alice.address)))
-        .to.emit(voting, "VoteCast")
-        .withArgs(1, alice.address, 1);
+  describe("Anonymous voting", function () {
+    it("accepts a registered voter's proof submitted by a relayer and tallies it", async function () {
+      const { voting, relayer, alice, prove } = await loadFixture(openFixture);
+      const proof = await prove(alice, 1);
 
-      expect(await voting.hasVoted(1, alice.address)).to.equal(true);
+      await expect(voting.connect(relayer).vote(1, proof)).to.emit(voting, "VoteCast").withArgs(1, 1, proof.nullifier);
       expect((await voting.getCandidates(1))[1].voteCount).to.equal(1);
       expect((await voting.getElection(1)).totalVotes).to.equal(1);
+      expect(await voting.nullifierUsed(1, proof.nullifier)).to.equal(true);
     });
 
-    it("blocks double voting", async function () {
-      const { voting, alice, tree } = await loadFixture(openFixture);
-      const proof = tree.getProof(alice.address);
-      await voting.connect(alice).vote(1, 0, proof);
-      await expect(voting.connect(alice).vote(1, 2, proof)).to.be.revertedWithCustomError(voting, "AlreadyVoted");
+    it("blocks a second vote from the same voter, even for a different candidate", async function () {
+      const { voting, relayer, bob, prove } = await loadFixture(openFixture);
+      await voting.connect(relayer).vote(1, await prove(bob, 0));
+      await expect(voting.connect(relayer).vote(1, await prove(bob, 2))).to.be.revertedWithCustomError(voting, "AlreadyVoted");
     });
 
-    it("blocks wallets that are not on the approved list", async function () {
-      const { voting, outsider, alice, tree } = await loadFixture(openFixture);
-      expect(tree.getProof(outsider.address)).to.equal(null);
-      await expect(voting.connect(outsider).vote(1, 0, [])).to.be.revertedWithCustomError(voting, "NotEligible");
+    it("blocks someone who is not a registered voter", async function () {
+      const { voting, semaphore, relayer, group, prove } = await loadFixture(openFixture);
+      const outsider = new Identity();
+      const fakeGroup = new Group([...group.members, outsider.commitment]);
+      const proof = await prove(outsider, 0, undefined, fakeGroup);
+      await expect(voting.connect(relayer).vote(1, proof)).to.be.revertedWithCustomError(
+        semaphore,
+        "Semaphore__MerkleTreeRootIsNotPartOfTheGroup"
+      );
     });
 
-    it("blocks an outsider who reuses someone else's proof", async function () {
-      const { voting, outsider, alice, tree } = await loadFixture(openFixture);
-      await expect(voting.connect(outsider).vote(1, 0, tree.getProof(alice.address))).to.be.revertedWithCustomError(voting, "NotEligible");
+    it("the relayer cannot change the voter's chosen candidate", async function () {
+      const { voting, semaphore, relayer, carol, prove } = await loadFixture(openFixture);
+      const tampered = { ...(await prove(carol, 0)), message: "1" };
+      await expect(voting.connect(relayer).vote(1, tampered)).to.be.revertedWithCustomError(semaphore, "Semaphore__InvalidProof");
+      expect((await voting.getElection(1)).totalVotes).to.equal(0);
     });
 
     it("rejects invalid candidate ids", async function () {
-      const { voting, alice, tree } = await loadFixture(openFixture);
-      await expect(voting.connect(alice).vote(1, 3, tree.getProof(alice.address)))
+      const { voting, relayer, alice, prove } = await loadFixture(openFixture);
+      await expect(voting.connect(relayer).vote(1, await prove(alice, 3)))
         .to.be.revertedWithCustomError(voting, "InvalidCandidate")
         .withArgs(3);
     });
 
-    it("rejects votes before opening and after closing", async function () {
-      const { voting, alice, tree, end } = await loadFixture(electionFixture);
-      const proof = tree.getProof(alice.address);
-      await expect(voting.connect(alice).vote(1, 0, proof)).to.be.revertedWithCustomError(voting, "WrongPhase").withArgs(1, Phase.Setup);
-      await time.increaseTo(end);
-      await expect(voting.connect(alice).vote(1, 0, proof)).to.be.revertedWithCustomError(voting, "WrongPhase").withArgs(1, Phase.Ended);
-    });
-
-    it("voting in one election does not affect another", async function () {
-      const { voting, alice, tree, start } = await loadFixture(electionFixture);
+    it("rejects a proof made for a different election (replay)", async function () {
+      const { voting, relayer, alice, group, start } = await loadFixture(electionFixture);
       await voting.createElection("Second", 9, start - 10, start + HOUR);
       await voting.addCandidate(2, "Kofi");
-      await voting.setVoterRoot(2, tree.root, tree.count);
+      await voting.addVoters(2, group.members);
       await time.increaseTo(start);
 
-      await voting.connect(alice).vote(1, 0, tree.getProof(alice.address));
-      expect(await voting.hasVoted(2, alice.address)).to.equal(false);
-      await voting.connect(alice).vote(2, 0, tree.getProof(alice.address));
+      const forElection1 = await proveVote(alice, group, 0, await voting.scopeOf(1));
+      await expect(voting.connect(relayer).vote(2, forElection1)).to.be.revertedWithCustomError(voting, "WrongScope");
+    });
+
+    it("the same voter votes once in each election, with unlinkable nullifiers", async function () {
+      const { voting, relayer, alice, group, start } = await loadFixture(electionFixture);
+      await voting.createElection("Second", 9, start - 10, start + HOUR);
+      await voting.addCandidate(2, "Kofi");
+      await voting.addVoters(2, group.members);
+      await time.increaseTo(start);
+
+      const p1 = await proveVote(alice, group, 0, await voting.scopeOf(1));
+      const p2 = await proveVote(alice, group, 0, await voting.scopeOf(2));
+      await voting.connect(relayer).vote(1, p1);
+      await voting.connect(relayer).vote(2, p2);
+
+      expect(p1.nullifier).to.not.equal(p2.nullifier);
       expect((await voting.getCandidates(2))[0].voteCount).to.equal(1);
     });
 
-    it("refuses votes in an election opened without candidates or a voter list", async function () {
-      const { voting, alice, tree } = await loadFixture(deployFixture);
-      const now = await time.latest();
-      await voting.createElection("Empty", 1, now + 10, now + HOUR);
-      await time.increaseTo(now + 10);
-      await expect(voting.connect(alice).vote(1, 0, [])).to.be.revertedWithCustomError(voting, "NoCandidates");
+    it("works no matter which account submits, and records nothing that identifies the voter", async function () {
+      const { voting, stranger, alice, bob, carol, prove } = await loadFixture(openFixture);
+      const receipt = await (await voting.connect(stranger).vote(1, await prove(alice, 2))).wait();
 
-      await voting.createElection("No list", 2, now + 100, now + HOUR);
+      const onChain = (JSON.stringify(receipt.logs.map((l) => [l.topics, l.data])) + receipt.from).toLowerCase();
+      for (const id of [alice, bob, carol]) {
+        expect(onChain).to.not.include(ethers.toBeHex(id.commitment, 32).slice(2));
+      }
+      expect(receipt.from).to.equal(stranger.address);
+    });
+
+    it("rejects votes before opening and after closing", async function () {
+      const { voting, relayer, alice, prove, end } = await loadFixture(electionFixture);
+      const proof = await prove(alice, 0);
+      await expect(voting.connect(relayer).vote(1, proof)).to.be.revertedWithCustomError(voting, "WrongPhase").withArgs(1, Phase.Setup);
+      await time.increaseTo(end);
+      await expect(voting.connect(relayer).vote(1, proof)).to.be.revertedWithCustomError(voting, "WrongPhase").withArgs(1, Phase.Ended);
+    });
+
+    it("refuses votes in an election opened without candidates or voters", async function () {
+      const { voting } = await loadFixture(deployFixture);
+      const now = await time.latest();
+      await voting.createElection("Empty", 1, now + 100, now + HOUR);
+      await voting.createElection("No voters", 2, now + 100, now + HOUR);
       await voting.addCandidate(2, "Kofi");
       await time.increaseTo(now + 100);
-      await expect(voting.connect(alice).vote(2, 0, [])).to.be.revertedWithCustomError(voting, "NoVoterList");
+
+      await expect(voting.vote(1, DUMMY_PROOF)).to.be.revertedWithCustomError(voting, "NoCandidates");
+      await expect(voting.vote(2, DUMMY_PROOF)).to.be.revertedWithCustomError(voting, "NoVoterList");
     });
   });
 
   describe("Results", function () {
-    async function voteAll(voting, tree, ballots) {
-      for (const [signer, candidateId] of ballots) {
-        await voting.connect(signer).vote(1, candidateId, tree.getProof(signer.address));
+    async function castAll(voting, relayer, prove, ballots) {
+      for (const [identity, candidateId] of ballots) {
+        await voting.connect(relayer).vote(1, await prove(identity, candidateId));
       }
     }
 
     it("anyone can finalize, and the clear winner is reported", async function () {
-      const { voting, alice, bob, carol, outsider, tree, end } = await loadFixture(openFixture);
-      await voteAll(voting, tree, [[alice, 1], [bob, 1], [carol, 0]]);
+      const { voting, relayer, stranger, alice, bob, carol, prove, end } = await loadFixture(openFixture);
+      await castAll(voting, relayer, prove, [[alice, 1], [bob, 1], [carol, 0]]);
       await time.increaseTo(end);
 
-      await expect(voting.connect(outsider).finalize(1))
-        .to.emit(voting, "ElectionFinalized")
-        .withArgs(1, [1], 2, 3);
+      await expect(voting.connect(stranger).finalize(1)).to.emit(voting, "ElectionFinalized").withArgs(1, [1], 2, 3);
       expect(await voting.getWinners(1)).to.deep.equal([1n]);
     });
 
     it("reports ties as multiple winners", async function () {
-      const { voting, alice, bob, tree, end } = await loadFixture(openFixture);
-      await voteAll(voting, tree, [[alice, 0], [bob, 2]]);
+      const { voting, relayer, alice, bob, prove, end } = await loadFixture(openFixture);
+      await castAll(voting, relayer, prove, [[alice, 0], [bob, 2]]);
       await time.increaseTo(end);
       await voting.finalize(1);
       expect(await voting.getWinners(1)).to.deep.equal([0n, 2n]);
     });
 
     it("a candidate who overtakes the early leader is the only winner", async function () {
-      const { voting, alice, bob, carol, tree, end } = await loadFixture(openFixture);
-      // Candidate 0 leads first, then candidate 1 overtakes it
-      await voteAll(voting, tree, [[alice, 0], [bob, 1], [carol, 1]]);
+      const { voting, relayer, alice, bob, carol, prove, end } = await loadFixture(openFixture);
+      await castAll(voting, relayer, prove, [[alice, 0], [bob, 1], [carol, 1]]);
       await time.increaseTo(end);
       await voting.finalize(1);
       expect(await voting.getWinners(1)).to.deep.equal([1n]);
@@ -257,18 +310,12 @@ describe("VotingV2", function () {
     });
   });
 
-  describe("Eligibility helper", function () {
-    it("isEligible matches the off-chain tree", async function () {
-      const { voting, alice, outsider, tree } = await loadFixture(electionFixture);
-      expect(await voting.isEligible(1, alice.address, tree.getProof(alice.address))).to.equal(true);
-      expect(await voting.isEligible(1, outsider.address, tree.getProof(alice.address))).to.equal(false);
-    });
-
-    it("isEligible is false before a voter list is published", async function () {
-      const { voting, alice } = await loadFixture(deployFixture);
-      const now = await time.latest();
-      await voting.createElection("A", 1, now + HOUR, now + 2 * HOUR);
-      expect(await voting.isEligible(1, alice.address, [])).to.equal(false);
+  describe("Scope", function () {
+    it("differs per election and per contract deployment", async function () {
+      const { voting, semaphore, admin } = await loadFixture(deployFixture);
+      const other = await ethers.deployContract("VotingV2", [admin.address, await semaphore.getAddress()]);
+      expect(await voting.scopeOf(1)).to.not.equal(await voting.scopeOf(2));
+      expect(await voting.scopeOf(1)).to.not.equal(await other.scopeOf(1));
     });
   });
 });
