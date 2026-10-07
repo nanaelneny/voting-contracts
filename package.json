@@ -2,35 +2,35 @@
   "name": "voting-contracts",
   "version": "1.0.0",
   "scripts": {
+    "postinstall": "npm --prefix voting-backend install --no-audit --no-fund",
     "compile": "hardhat compile",
     "test": "hardhat test",
     "coverage": "hardhat coverage",
-    "test:gas": "REPORT_GAS=true hardhat test",
+    "test:gas": "cross-env REPORT_GAS=true hardhat test",
     "node": "hardhat node",
     "deploy:local": "hardhat run scripts/deployV2.js --network localhost",
-    "deploy:demo": "SEED_DEMO=true hardhat run scripts/deployV2.js --network localhost"
+    "deploy:demo": "cross-env SEED_DEMO=true hardhat run scripts/deployV2.js --network localhost",
+    "test:contracts": "hardhat test test/VotingV2.test.js",
+    "test:backend": "hardhat test test/backend/repository.test.js test/backend/api.test.js",
+    "test:db": "cross-env MSSQL_TEST=1 hardhat test test/backend/repository.test.js"
   },
   "keywords": [],
   "author": "",
   "license": "ISC",
-  "description": "",
+  "description": "Privacy-preserving blockchain voting (BSc final year project)",
   "devDependencies": {
     "@nomicfoundation/hardhat-toolbox": "^5.0.0",
     "@zk-kit/semaphore-artifacts": "^4.13.0",
-    "hardhat": "^2.24.3"
+    "cross-env": "^7.0.3",
+    "hardhat": "^2.24.3",
+    "supertest": "^7.3.1"
   },
   "dependencies": {
     "@openzeppelin/contracts": "^5.6.1",
     "@semaphore-protocol/contracts": "^4.14.3",
     "@semaphore-protocol/core": "^4.14.3",
-    "axios": "^1.10.0",
-    "cors": "^2.8.5",
     "dotenv": "^16.6.1",
     "ethers": "^6.14.4",
-    "express": "^4.18.2",
-    "pg": "^8.11.1",
-    "poseidon-solidity": "^0.0.5",
-    "react-router-dom": "^7.6.2",
-    "tailwindcss": "^4.1.10"
+    "poseidon-solidity": "^0.0.5"
   }
 }

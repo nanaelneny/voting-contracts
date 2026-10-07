@@ -1,22 +1,25 @@
 {
   "name": "voting-backend",
   "version": "1.0.0",
-  "description": "Online Voting System Backend with Blockchain Integration (MSSQL)",
-  "main": "server.js",
+  "description": "API and gas-paying relayer for the privacy-preserving voting system (SQL Server + VotingV2)",
+  "main": "src/server.js",
   "scripts": {
-    "start": "node server.js",
-    "dev": "nodemon server.js"
+    "start": "node src/server.js",
+    "dev": "nodemon src/server.js",
+    "db:init": "node scripts/initDb.js",
+    "create-admin": "node scripts/createAdmin.js"
   },
-  "author": "Your Name",
+  "author": "Nana",
   "license": "ISC",
   "dependencies": {
-    "bcryptjs": "^3.0.2",
-    "cors": "^2.8.5",
+    "bcryptjs": "^3.0.3",
+    "cors": "^2.8.6",
     "dotenv": "^16.6.1",
-    "ethers": "^6.15.0",
-    "express": "^4.18.2",
-    "jsonwebtoken": "^9.0.2",
-    "mssql": "^11.0.1"
+    "ethers": "^6.17.0",
+    "express": "^4.22.3",
+    "express-rate-limit": "^7.5.1",
+    "jsonwebtoken": "^9.0.3",
+    "mssql": "^11.0.2"
   },
   "devDependencies": {
     "nodemon": "^3.1.10"

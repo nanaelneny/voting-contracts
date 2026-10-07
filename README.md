@@ -14,9 +14,10 @@ recorded and tallied by an Ethereum smart contract. Election metadata lives in S
 | `contracts/semaphore/SemaphoreDeps.sol` | Pulls Semaphore's contracts into the build for local deployment |
 | `contracts/Voting.sol` | Original diploma contract, kept until the frontend is migrated |
 | `test/VotingV2.test.js` | Contract test suite |
+| `test/backend/` | Backend tests: end-to-end API + relayer, and database tests |
 | `test/helpers/semaphore.js` | Deploys Semaphore locally and generates vote proofs for tests |
 | `scripts/deployV2.js` | Deploys the contracts and copies the ABI/address to the frontend and backend |
-| `voting-backend/` | Node/Express API (auth, elections, candidates) on SQL Server |
+| `voting-backend/` | Node/Express API and gas-paying relayer on SQL Server. See its [README](voting-backend/README.md) |
 | `frontend/voting-frontend/` | React + Tailwind web app |
 
 ## How voting works
@@ -44,8 +45,10 @@ Requires Node.js 18+.
 
 ```bash
 npm install
-npm test              # run the contract tests
-npm run coverage      # coverage report
+npm test              # all tests (contracts + backend)
+npm run test:contracts
+npm run test:backend
+npm run coverage      # contract coverage report
 npm run test:gas      # gas cost per function
 ```
 
@@ -77,6 +80,6 @@ verification is the main cost of privacy, which motivates Layer 2 deployment.
 ## Status
 
 - [x] VotingV2 contract with zero-knowledge (Semaphore) anonymous voting, and test suite
-- [ ] Backend: voter registration (commitments), election setup on-chain, gas-paying relayer; remove SQL `Votes` table
+- [x] Backend: accounts, voter registration (commitments), admin approval, publishing on-chain, gas-paying relayer, results; SQL `Votes` table removed
 - [ ] Frontend: identity creation, proof generation in the browser, election picker, results
 - [ ] Layer 2 testnet deployment and gas/latency evaluation
