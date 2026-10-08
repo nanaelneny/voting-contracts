@@ -40,8 +40,7 @@ Errors come back as `{ "error": "message for the user", "code": "MACHINE_CODE" }
 
 ## Setup (Windows, Git Bash)
 
-1. **Install packages.** From the project root, run `npm run setup`. It installs the root packages and then this folder's.
-   (Or run `npm install` in the project root and again in `voting-backend`.)
+1. **Install packages.** From the project root, run `npm run setup`. It installs the root, backend and frontend packages.
 
 2. **Create `.env`.** Copy `.env.example` to `.env` in this folder and fill in:
    - `JWT_SECRET`: generate one with
@@ -52,7 +51,7 @@ Errors come back as `{ "error": "message for the user", "code": "MACHINE_CODE" }
    - The blockchain keys in `.env.example` already match the local Hardhat node.
 
 3. **Create the database and tables:** `npm run db:init`. This creates a new `voting_v2`
-   database and leaves your diploma `voting_system` database untouched.
+   database and leaves your diploma `VotingDB` database untouched.
 
 4. **Create an admin account:**
    `npm run create-admin -- admin@knust.edu.gh "Election Officer" "a-strong-password"`
@@ -68,10 +67,22 @@ Errors come back as `{ "error": "message for the user", "code": "MACHINE_CODE" }
    ```
    The API runs at http://localhost:5000. Check http://localhost:5000/api/health.
 
-   The local Hardhat chain starts empty every time you restart it, so after restarting
-   `npm run node`, run `npm run deploy:local` again (terminal 2). Elections published before the restart no longer
-   exist on-chain, so reset the database too by running the `DELETE` statements in
-   `test/backend/repository.test.js` against `voting_v2`, or drop and re-create it.
+   The local Hardhat chain starts empty every time you restart it. After restarting
+   `npm run node`, run `npm run deploy:local` again (terminal 2), and clear the old elections
+   from the database with `npm run db:reset` (in `voting-backend`). Accounts are kept.
+
+   **Without SQL Server:** `npm run demo` instead of `npm run dev` runs the API with an in-memory
+   database (lost when it stops). Log in as `admin@demo.test` / `demo-admin-123`.
+
+   The frontend's README explains how to start the website.
+
+## Blockchain timing
+
+A blockchain's clock only moves when a block is mined. `npm run node` mines a block every
+3 seconds, like a real network. The backend also corrects for small lags: if the current time is
+past the opening time but the latest block isn't yet, it reports voting as open
+(`effectivePhase` in `electionService.js`). Ballots themselves are always checked by the
+contract against the time of the block they're mined in.
 
 ## Tests
 
@@ -95,10 +106,15 @@ src/
   auth/auth.js           JWT login tokens, requireAuth / requireAdmin
   db/schema.sql          SQL Server tables
   db/mssqlRepository.js  every SQL query
-  db/memoryRepository.js same interface, in memory, for tests
+  db/memoryRepository.js same interface, in memory, for tests and demo mode
   chain/votingClient.js  talks to VotingV2 (simulates before sending, decodes errors)
-  services/electionService.js  publish, add voters, cancel, results
+  chain/provider.js      blockchain connection (response cache off, see the comment)
+  services/electionService.js  publish, add voters, cancel, results, phase correction
   services/relayService.js     submits anonymous ballots, logs performance
   routes/                HTTP endpoints
-scripts/initDb.js, scripts/createAdmin.js
+scripts/
+  initDb.js       npm run db:init       create the database and tables
+  resetDb.js      npm run db:reset      clear elections, keep accounts
+  createAdmin.js  npm run create-admin  create an election officer account
+  demoServer.js   npm run demo          run without SQL Server
 ```

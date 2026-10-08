@@ -1,11 +1,12 @@
 // Starts the API with the real SQL Server database and blockchain.
 //   npm start        (or: npm run dev  to restart on file changes)
 const path = require("path");
-const { JsonRpcProvider, Wallet } = require("ethers");
+const { Wallet } = require("ethers");
 const { loadConfig } = require("./config");
 const { createApp } = require("./app");
 const { createMssqlRepository } = require("./db/mssqlRepository");
 const { createVotingClient } = require("./chain/votingClient");
+const { createProvider } = require("./chain/provider");
 
 async function main() {
   const config = loadConfig();
@@ -14,7 +15,7 @@ async function main() {
   const { abi } = require(path.join(__dirname, "..", "abi", "VotingV2.json"));
   const address = config.chain.contractAddress || deployment.address;
 
-  const provider = new JsonRpcProvider(config.chain.rpcUrl);
+  const provider = createProvider(config.chain.rpcUrl);
   const network = await provider.getNetwork();
   const chain = createVotingClient({
     address,

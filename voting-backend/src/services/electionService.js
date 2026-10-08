@@ -10,6 +10,17 @@ function electionStatus(election, now) {
   return "closed";
 }
 
+/**
+ * The phase the election is really in. A blockchain's clock only moves when a block is
+ * mined, so it can lag real time by a few seconds (or much longer on an idle local chain).
+ * Transactions are mined in a new block, so they see the true time; this makes reads agree.
+ */
+function effectivePhase(state, now) {
+  if (state.phase === "setup" && now >= state.startTime) return now >= state.endTime ? "ended" : "voting";
+  if (state.phase === "voting" && now >= state.endTime) return "ended";
+  return state.phase;
+}
+
 /** An election can only be edited (details, candidates) before it goes on-chain. */
 function assertEditable(election) {
   if (election.cancelledAt) throw conflict("This election was cancelled", "ELECTION_CANCELLED");
@@ -17,8 +28,14 @@ function assertEditable(election) {
 }
 
 function createElectionService({ repo, chain, clock, config }) {
+  /** Election state from the chain, with the phase corrected for clock lag. */
+  async function chainState(chainElectionId) {
+    const state = await chain.getElection(chainElectionId);
+    return { ...state, phase: effectivePhase(state, await clock()) };
+  }
+
   async function ensureSetupPhase(election) {
-    const state = await chain.getElection(election.chainElectionId);
+    const state = await chainState(election.chainElectionId);
     if (state.phase !== "setup") {
       throw conflict("Voting has already opened on-chain; the election can no longer be changed", "VOTING_STARTED");
     }
@@ -115,7 +132,7 @@ function createElectionService({ repo, chain, clock, config }) {
       };
     }
 
-    const [state, onChain] = await Promise.all([chain.getElection(election.chainElectionId), chain.getCandidates(election.chainElectionId)]);
+    const [state, onChain] = await Promise.all([chainState(election.chainElectionId), chain.getCandidates(election.chainElectionId)]);
     const byIndex = new Map(candidates.map((c) => [c.chainIndex, c]));
     const rows = onChain.map((c, i) => ({
       id: byIndex.get(i)?.id ?? null, name: c.name, party: byIndex.get(i)?.party ?? null, votes: c.voteCount,
@@ -141,7 +158,7 @@ function createElectionService({ repo, chain, clock, config }) {
     };
   }
 
-  return { electionStatus, assertEditable, publish, syncVoters, cancel, results };
+  return { electionStatus, assertEditable, publish, syncVoters, cancel, results, chainState };
 }
 
-module.exports = { createElectionService, electionStatus, assertEditable };
+module.exports = { createElectionService, electionStatus, assertEditable, effectivePhase };

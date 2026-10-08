@@ -1,70 +1,38 @@
-# Getting Started with Create React App
+# Voting frontend
 
-This project was bootstrapped with [Create React App](https://github.com/facebook/create-react-app).
+React + Vite + Tailwind web app for voters and election officers. It only talks to the
+backend (`/api`, forwarded to http://localhost:5000); it never connects to the blockchain itself.
 
-## Available Scripts
+```bash
+npm install
+npm run dev       # http://localhost:3000 (the backend must be running)
+npm run build     # production build in dist/
+```
 
-In the project directory, you can run:
+`npm run dev` and `npm run build` first copy the zero-knowledge proving files from
+`@zk-kit/semaphore-artifacts` into `public/semaphore` (about 65 MB, git-ignored), so voting works
+without downloading them from the internet.
 
-### `npm start`
+## Where things are
 
-Runs the app in the development mode.\
-Open [http://localhost:3000](http://localhost:3000) to view it in your browser.
+```
+src/
+  main.jsx                 routes
+  lib/api.js               backend calls; ballots are sent with no login or cookies
+  lib/identity.js          voter keys: create, store in this browser, backup file, restore
+  lib/ballot.js            builds the zero-knowledge proof and submits the ballot
+  lib/auth.jsx             login state
+  pages/ElectionsPage.jsx  list of elections
+  pages/ElectionPage.jsx   register, ballot paper, receipt, results
+  pages/AuthPages.jsx      log in, create account
+  pages/admin/             election officer screens
+  components/              layout, results bars, shared UI
+```
 
-The page will reload when you make changes.\
-You may also see any lint errors in the console.
+## Privacy notes
 
-### `npm test`
-
-Launches the test runner in the interactive watch mode.\
-See the section about [running tests](https://facebook.github.io/create-react-app/docs/running-tests) for more information.
-
-### `npm run build`
-
-Builds the app for production to the `build` folder.\
-It correctly bundles React in production mode and optimizes the build for the best performance.
-
-The build is minified and the filenames include the hashes.\
-Your app is ready to be deployed!
-
-See the section about [deployment](https://facebook.github.io/create-react-app/docs/deployment) for more information.
-
-### `npm run eject`
-
-**Note: this is a one-way operation. Once you `eject`, you can't go back!**
-
-If you aren't satisfied with the build tool and configuration choices, you can `eject` at any time. This command will remove the single build dependency from your project.
-
-Instead, it will copy all the configuration files and the transitive dependencies (webpack, Babel, ESLint, etc) right into your project so you have full control over them. All of the commands except `eject` will still work, but they will point to the copied scripts so you can tweak them. At this point you're on your own.
-
-You don't have to ever use `eject`. The curated feature set is suitable for small and middle deployments, and you shouldn't feel obligated to use this feature. However we understand that this tool wouldn't be useful if you couldn't customize it when you are ready for it.
-
-## Learn More
-
-You can learn more in the [Create React App documentation](https://facebook.github.io/create-react-app/docs/getting-started).
-
-To learn React, check out the [React documentation](https://reactjs.org/).
-
-### Code Splitting
-
-This section has moved here: [https://facebook.github.io/create-react-app/docs/code-splitting](https://facebook.github.io/create-react-app/docs/code-splitting)
-
-### Analyzing the Bundle Size
-
-This section has moved here: [https://facebook.github.io/create-react-app/docs/analyzing-the-bundle-size](https://facebook.github.io/create-react-app/docs/analyzing-the-bundle-size)
-
-### Making a Progressive Web App
-
-This section has moved here: [https://facebook.github.io/create-react-app/docs/making-a-progressive-web-app](https://facebook.github.io/create-react-app/docs/making-a-progressive-web-app)
-
-### Advanced Configuration
-
-This section has moved here: [https://facebook.github.io/create-react-app/docs/advanced-configuration](https://facebook.github.io/create-react-app/docs/advanced-configuration)
-
-### Deployment
-
-This section has moved here: [https://facebook.github.io/create-react-app/docs/deployment](https://facebook.github.io/create-react-app/docs/deployment)
-
-### `npm run build` fails to minify
-
-This section has moved here: [https://facebook.github.io/create-react-app/docs/troubleshooting#npm-run-build-fails-to-minify](https://facebook.github.io/create-react-app/docs/troubleshooting#npm-run-build-fails-to-minify)
+- The voter's secret key is created and kept in the browser (`localStorage`). Only the public
+  commitment is sent to the server. The backup file contains the secret, so voters must keep it private.
+- The ballot request is sent with `credentials: "omit"` and no `Authorization` header.
+- After voting, the browser stores only the transaction hash, not the voter's choice.
+- Before proving, the browser checks that the voter list from the server matches the root stored on-chain.

@@ -1,38 +1,123 @@
-/* Tailwind CSS base, components, and utilities */
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
+@import "@fontsource/public-sans/400.css";
+@import "@fontsource/public-sans/500.css";
+@import "@fontsource/public-sans/600.css";
+@import "@fontsource/public-sans/800.css";
+@import "tailwindcss";
 
-/* Import a Google Font (Poppins) */
-@import url('https://fonts.googleapis.com/css2?family=Poppins:wght@400;600;700&display=swap');
+/*
+  Secret Ballot design tokens
+  paper  #F4F6F9  cool ballot paper
+  sheet  #FFFFFF  the ballot itself
+  ink    #1C2740  printing ink (text, rules)
+  muted  #586379  secondary text
+  rule   #D6DCE6  lines
+  violet #5B3A9E  indelible election ink, the one accent
+*/
+@theme {
+  --font-sans: "Public Sans", ui-sans-serif, system-ui, sans-serif;
 
-/* Global styles */
-html, body {
-  @apply h-full m-0 p-0;
-  font-family: 'Poppins', sans-serif;
-  background: linear-gradient(135deg, #f0f4ff, #e0f7fa);
-  color: #333;
+  --color-paper: #f4f6f9;
+  --color-sheet: #ffffff;
+  --color-ink: #1c2740;
+  --color-muted: #586379;
+  --color-rule: #d6dce6;
+  --color-violet: #5b3a9e;
+  --color-violet-dark: #45297d;
+  --color-violet-wash: #efe9f9;
+  --color-good: #1e7347;
+  --color-good-wash: #e5f3eb;
+  --color-warn: #8a5a0a;
+  --color-warn-wash: #fbf1dc;
+  --color-bad: #a8261b;
+  --color-bad-wash: #fbe8e6;
 }
 
-h1, h2, h3, h4, h5, h6 {
-  @apply font-bold text-gray-800;
+@layer base {
+  html {
+    background: var(--color-paper);
+    color: var(--color-ink);
+    font-feature-settings: "tnum" 1;
+    -webkit-font-smoothing: antialiased;
+  }
+  body {
+    min-height: 100vh;
+  }
+  :focus-visible {
+    outline: 3px solid var(--color-violet);
+    outline-offset: 2px;
+    border-radius: 2px;
+  }
+  h1 {
+    font-size: 2rem;
+    line-height: 1.15;
+    font-weight: 800;
+    letter-spacing: -0.02em;
+  }
+  h2 {
+    font-size: 1.25rem;
+    line-height: 1.3;
+    font-weight: 700;
+    letter-spacing: -0.01em;
+  }
+  h3 {
+    font-size: 1rem;
+    font-weight: 600;
+  }
 }
 
-a {
-  @apply text-blue-600 hover:text-blue-800;
-  text-decoration: none;
+@utility btn {
+  @apply inline-flex items-center justify-center gap-2 rounded-md px-4 py-2.5 text-sm font-semibold transition-colors disabled:cursor-not-allowed disabled:opacity-50;
 }
 
-button {
-  @apply focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2;
-  transition: all 0.2s ease-in-out;
+@utility btn-primary {
+  @apply btn bg-violet text-white hover:bg-violet-dark;
 }
 
-input, textarea {
-  @apply border rounded px-3 py-2 w-full focus:outline-none focus:ring-2 focus:ring-blue-400;
-  transition: all 0.2s ease-in-out;
+@utility btn-secondary {
+  @apply btn border border-rule bg-sheet text-ink hover:border-ink;
 }
 
-.container {
-  @apply max-w-4xl mx-auto px-4;
+@utility btn-danger {
+  @apply btn border border-bad/40 bg-sheet text-bad hover:bg-bad-wash;
+}
+
+@utility btn-link {
+  @apply font-semibold text-violet underline decoration-violet/30 underline-offset-4 hover:decoration-violet;
+}
+
+@utility field {
+  @apply block w-full rounded-md border border-rule bg-sheet px-3 py-2.5 text-ink placeholder:text-muted/70 focus:border-violet focus:outline-none focus:ring-2 focus:ring-violet/25;
+}
+
+@utility label {
+  @apply mb-1.5 block text-sm font-semibold;
+}
+
+@utility panel {
+  @apply rounded-lg border border-rule bg-sheet;
+}
+
+/* The sealing moment: the ballot folds into its envelope once the proof is accepted. */
+@keyframes seal {
+  0% { transform: translateY(0) scaleY(1); opacity: 1; }
+  60% { transform: translateY(18px) scaleY(0.35); opacity: 0.9; }
+  100% { transform: translateY(28px) scaleY(0.05); opacity: 0; }
+}
+@keyframes flap {
+  0% { transform: rotateX(0deg); }
+  100% { transform: rotateX(180deg); }
+}
+.animate-seal {
+  animation: seal 700ms cubic-bezier(0.6, 0, 0.4, 1) forwards;
+  transform-origin: top center;
+}
+.animate-flap {
+  animation: flap 450ms 650ms ease-in forwards;
+  transform-origin: top center;
+}
+@media (prefers-reduced-motion: reduce) {
+  .animate-seal,
+  .animate-flap {
+    animation: none;
+  }
 }

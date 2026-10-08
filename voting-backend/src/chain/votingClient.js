@@ -70,7 +70,10 @@ function createVotingClient({ address, abi, adminSigner, relayerSigner, voterBat
   const admin = reader.connect(adminSigner);
   const relayer = reader.connect(relayerSigner);
   const adminQueue = createQueue();
-  const relayQueue = createQueue();
+  // One account can't send two transactions at once (they'd get the same nonce), so if the
+  // admin and relayer are the same key, relayed votes wait in the admin's queue too.
+  const sameAccount = adminSigner.address && adminSigner.address === relayerSigner.address;
+  const relayQueue = sameAccount ? adminQueue : createQueue();
   let semaphorePromise;
 
   // Simulate first (so a doomed transaction costs no gas), then send and wait for it.

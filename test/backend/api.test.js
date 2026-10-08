@@ -12,6 +12,13 @@ const { deploySemaphore, proveVote } = require("../helpers/semaphore");
 const { createApp } = require("../../voting-backend/src/app");
 const { createMemoryRepository } = require("../../voting-backend/src/db/memoryRepository");
 const { createVotingClient } = require("../../voting-backend/src/chain/votingClient");
+const { createProvider } = require("../../voting-backend/src/chain/provider");
+const { Wallet } = require("../../voting-backend/node_modules/ethers");
+const { JsonRpcServer } = require("hardhat/internal/hardhat-network/jsonrpc/server");
+const hre = require("hardhat");
+
+// Hardhat's default account #0, which deploys the contracts in these tests.
+const HARDHAT_KEY_0 = "0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80";
 
 const HOUR = 3600;
 const CONFIG = {
@@ -23,12 +30,20 @@ const CONFIG = {
   relayRateLimitPerMinute: 1000,
 };
 
-/** Fresh contracts, database and app. */
-async function setup() {
-  const [adminSigner, relayerSigner] = await ethers.getSigners();
+/**
+ * Fresh contracts, database and app.
+ * With { rpcUrl }, the backend reaches the chain over HTTP JSON-RPC exactly like in
+ * production, using ONE key for both admin and relayer (the hardest case for nonces).
+ */
+async function setup({ rpcUrl } = {}) {
+  let [adminSigner, relayerSigner] = await ethers.getSigners();
   const semaphore = await deploySemaphore();
   const voting = await ethers.deployContract("VotingV2", [adminSigner.address, await semaphore.getAddress()]);
   const { abi } = await artifacts.readArtifact("VotingV2");
+  if (rpcUrl) {
+    const provider = createProvider(rpcUrl);
+    adminSigner = relayerSigner = new Wallet(HARDHAT_KEY_0, provider);
+  }
 
   const chain = createVotingClient({ address: await voting.getAddress(), abi, adminSigner, relayerSigner, voterBatchSize: CONFIG.voterBatchSize });
   const repo = createMemoryRepository();
@@ -390,6 +405,63 @@ describe("Backend API", function () {
       expect(res.body.chainElectionId).to.equal(chainId); // same election, not a duplicate
       expect(await ctx.voting.electionCount()).to.equal(chainId);
       expect((await ctx.voting.getElection(chainId)).candidateCount).to.equal(3);
+    });
+  });
+
+  describe("Over a real JSON-RPC connection, admin and relayer sharing one key", function () {
+    let server, ctx;
+    before(async () => {
+      server = new JsonRpcServer({ hostname: "127.0.0.1", port: 0, provider: hre.network.provider });
+      const { port } = await server.listen();
+      ctx = await setup({ rpcUrl: `http://127.0.0.1:${port}` });
+    });
+    after(async () => server && server.close());
+
+    it("publishes with many back-to-back transactions and relays simultaneous ballots", async () => {
+      const election = await createElection(ctx);
+      const voters = [];
+      for (let n = 1; n <= 5; n++) {
+        const token = await registerVoter(ctx.app, n);
+        const identity = new Identity();
+        await request(ctx.app).post(`/api/elections/${election.id}/registration`).set(as(token)).send({ commitment: identity.commitment.toString() }).expect(201);
+        voters.push(identity);
+      }
+      const { body } = await request(ctx.app).get(`/api/elections/${election.id}/registrations`).set(as(ctx.adminToken));
+      await request(ctx.app).post(`/api/elections/${election.id}/registrations/review`).set(as(ctx.adminToken))
+        .send({ ids: body.registrations.map((r) => r.id), status: "approved" }).expect(200);
+
+      // createElection + addCandidates + 3 voter batches, sent one after another
+      const pub = await request(ctx.app).post(`/api/elections/${election.id}/publish`).set(as(ctx.adminToken));
+      expect(pub.status, JSON.stringify(pub.body)).to.equal(200);
+      expect(pub.body.votersAdded).to.equal(5);
+
+      await time.increaseTo(election.start);
+      const ballots = await Promise.all(voters.map((v, i) => buildBallot(ctx.app, election.id, v, i % 3)));
+      const responses = await Promise.all(ballots.map((proof) => request(ctx.app).post(`/api/elections/${election.id}/votes`).send({ proof })));
+      expect(responses.map((r) => r.status)).to.deep.equal([201, 201, 201, 201, 201]);
+
+      const results = await request(ctx.app).get(`/api/elections/${election.id}/results`);
+      expect(results.body.candidates.map((c) => c.votes)).to.deep.equal([2, 2, 1]);
+      expect(results.body.phase).to.equal("voting");
+    });
+  });
+
+  describe("Phase when the blockchain clock lags", function () {
+    const { effectivePhase } = require("../../voting-backend/src/services/electionService");
+    const state = (phase) => ({ phase, startTime: new Date("2030-01-01T08:00:00Z"), endTime: new Date("2030-01-01T17:00:00Z") });
+    const at = (t) => new Date(`2030-01-01T${t}:00Z`);
+
+    it("uses real time when the chain hasn't caught up yet", () => {
+      expect(effectivePhase(state("setup"), at("07:59"))).to.equal("setup");
+      expect(effectivePhase(state("setup"), at("08:00"))).to.equal("voting");
+      expect(effectivePhase(state("setup"), at("17:30"))).to.equal("ended");
+      expect(effectivePhase(state("voting"), at("12:00"))).to.equal("voting");
+      expect(effectivePhase(state("voting"), at("17:00"))).to.equal("ended");
+    });
+
+    it("never overrides a finished or cancelled election", () => {
+      expect(effectivePhase(state("finalized"), at("12:00"))).to.equal("finalized");
+      expect(effectivePhase(state("cancelled"), at("12:00"))).to.equal("cancelled");
     });
   });
 });

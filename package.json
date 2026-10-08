@@ -2,14 +2,13 @@
   "name": "voting-contracts",
   "version": "1.0.0",
   "scripts": {
-    "setup": "npm install && cd voting-backend && npm install",
+    "setup": "npm install && cd voting-backend && npm install && cd ../frontend/voting-frontend && npm install",
     "compile": "hardhat compile",
     "test": "hardhat test",
     "coverage": "hardhat coverage",
     "test:gas": "cross-env REPORT_GAS=true hardhat test",
-    "node": "hardhat node",
+    "node": "cross-env HARDHAT_INTERVAL_MINING=1 hardhat node",
     "deploy:local": "hardhat run scripts/deployV2.js --network localhost",
-    "deploy:demo": "cross-env SEED_DEMO=true hardhat run scripts/deployV2.js --network localhost",
     "test:contracts": "hardhat test test/VotingV2.test.js",
     "test:backend": "hardhat test test/backend/repository.test.js test/backend/api.test.js",
     "test:db": "cross-env MSSQL_TEST=1 hardhat test test/backend/repository.test.js"

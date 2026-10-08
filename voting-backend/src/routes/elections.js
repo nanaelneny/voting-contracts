@@ -51,7 +51,7 @@ function electionRoutes({ repo, auth, elections, relay, chain, clock }) {
   router.get("/:id/group", asyncHandler(async (req, res) => {
     const election = await load(req);
     if (!election.publishedAt) throw notFound("This election hasn't been published yet");
-    const state = await chain.getElection(election.chainElectionId);
+    const state = await elections.chainState(election.chainElectionId);
     const [members, scope, root] = await Promise.all([
       repo.listGroupMembers(election.id),
       chain.scopeOf(election.chainElectionId),
