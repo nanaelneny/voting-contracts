@@ -17,8 +17,12 @@ const HARDHAT_ADMIN = "0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7
 const HARDHAT_RELAYER = "0x59c6995e998f97a5a0044966f0945389dc9e86dae88c7a8412f4603b6b78690d";
 
 async function main() {
-  const deployment = require(path.join(__dirname, "..", "abi", "VotingV2.address.json"));
-  const { abi } = require(path.join(__dirname, "..", "abi", "VotingV2.json"));
+  const abiDir = path.join(__dirname, "..", "abi");
+  if (!require("fs").existsSync(path.join(abiDir, "VotingV2.address.json"))) {
+    throw new Error('Contract not deployed yet. Run "npm run deploy:local" in the project root first.');
+  }
+  const deployment = require(path.join(abiDir, "VotingV2.address.json"));
+  const { abi } = require(path.join(abiDir, "VotingV2.json"));
   const provider = createProvider(process.env.RPC_URL || "http://127.0.0.1:8545");
   const network = await provider.getNetwork();
 

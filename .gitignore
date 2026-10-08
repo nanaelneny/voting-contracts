@@ -17,3 +17,6 @@ node_modules
 ignition/deployments/chain-31337
 
 
+
+# Written by npm run deploy:local (different on every machine)
+/voting-backend/abi/

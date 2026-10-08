@@ -11,8 +11,12 @@ const { createProvider } = require("./chain/provider");
 async function main() {
   const config = loadConfig();
 
-  const deployment = require(path.join(__dirname, "..", "abi", "VotingV2.address.json"));
-  const { abi } = require(path.join(__dirname, "..", "abi", "VotingV2.json"));
+  const abiDir = path.join(__dirname, "..", "abi");
+  if (!require("fs").existsSync(path.join(abiDir, "VotingV2.address.json"))) {
+    throw new Error('Contract not deployed yet. Run "npm run deploy:local" in the project root first.');
+  }
+  const deployment = require(path.join(abiDir, "VotingV2.address.json"));
+  const { abi } = require(path.join(abiDir, "VotingV2.json"));
   const address = config.chain.contractAddress || deployment.address;
 
   const provider = createProvider(config.chain.rpcUrl);
