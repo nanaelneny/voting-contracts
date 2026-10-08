@@ -2,7 +2,7 @@
   "name": "voting-contracts",
   "version": "1.0.0",
   "scripts": {
-    "postinstall": "npm --prefix voting-backend install --no-audit --no-fund",
+    "setup": "npm install && cd voting-backend && npm install",
     "compile": "hardhat compile",
     "test": "hardhat test",
     "coverage": "hardhat coverage",

@@ -40,7 +40,8 @@ Errors come back as `{ "error": "message for the user", "code": "MACHINE_CODE" }
 
 ## Setup (Windows, Git Bash)
 
-1. **Install packages.** From the project root, `npm install` also installs this folder's packages.
+1. **Install packages.** From the project root, run `npm run setup`. It installs the root packages and then this folder's.
+   (Or run `npm install` in the project root and again in `voting-backend`.)
 
 2. **Create `.env`.** Copy `.env.example` to `.env` in this folder and fill in:
    - `JWT_SECRET`: generate one with
@@ -68,7 +69,7 @@ Errors come back as `{ "error": "message for the user", "code": "MACHINE_CODE" }
    The API runs at http://localhost:5000. Check http://localhost:5000/api/health.
 
    The local Hardhat chain starts empty every time you restart it, so after restarting
-   `npm run node`, redeploy (step 2). Elections published before the restart no longer
+   `npm run node`, run `npm run deploy:local` again (terminal 2). Elections published before the restart no longer
    exist on-chain, so reset the database too by running the `DELETE` statements in
    `test/backend/repository.test.js` against `voting_v2`, or drop and re-create it.
 
