@@ -30,11 +30,24 @@ async function main() {
   });
 
   const repo = await createMssqlRepository(config.db);
+  await warnIfChainWasReset(repo, chain);
   const app = createApp({ repo, chain, config, chainInfo: { chainId: Number(network.chainId) } });
 
   app.listen(config.port, () => {
     console.log(`Voting API on http://localhost:${config.port}  (contract ${address}, chain ${network.chainId})`);
   });
+}
+
+/** Warns if the database lists elections that the blockchain doesn't have (e.g. after restarting the local chain). */
+async function warnIfChainWasReset(repo, chain) {
+  const onChain = await chain.electionCount();
+  const missing = (await repo.listElections()).filter((e) => e.chainElectionId && e.chainElectionId > onChain);
+  if (missing.length > 0) {
+    console.warn(
+      `\n⚠  ${missing.length} published election(s) in the database aren't on this blockchain ` +
+        `(was the local blockchain restarted?). Run "npm run db:reset" to clear them.\n`
+    );
+  }
 }
 
 main().catch((err) => {

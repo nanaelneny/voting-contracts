@@ -25,9 +25,17 @@ class DuplicateError extends Error {
 /** Wraps an async route so thrown errors reach the error handler. */
 const asyncHandler = (fn) => (req, res, next) => Promise.resolve(fn(req, res, next)).catch(next);
 
+// The database says an election is on the blockchain, but the blockchain doesn't have it.
+// Locally this happens when the Hardhat node is restarted (it starts empty).
+const CHAIN_MISMATCH_MESSAGE =
+  "This election isn't on the blockchain the server is connected to. If the local blockchain was restarted, run \"npm run db:reset\" in voting-backend.";
+
 function errorHandler(err, req, res, _next) {
   if (err instanceof HttpError) {
     return res.status(err.status).json({ error: err.message, code: err.code });
+  }
+  if (err.code === "ElectionNotFound") {
+    return res.status(409).json({ error: CHAIN_MISMATCH_MESSAGE, code: "CHAIN_MISMATCH" });
   }
   if (err.type === "entity.parse.failed") {
     return res.status(400).json({ error: "Request body is not valid JSON", code: "BAD_JSON" });
@@ -36,4 +44,4 @@ function errorHandler(err, req, res, _next) {
   res.status(500).json({ error: "Something went wrong on the server", code: "INTERNAL" });
 }
 
-module.exports = { HttpError, DuplicateError, badRequest, unauthorized, forbidden, notFound, conflict, asyncHandler, errorHandler };
+module.exports = { CHAIN_MISMATCH_MESSAGE, HttpError, DuplicateError, badRequest, unauthorized, forbidden, notFound, conflict, asyncHandler, errorHandler };

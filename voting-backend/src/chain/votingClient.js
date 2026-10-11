@@ -90,6 +90,15 @@ function createVotingClient({ address, abi, adminSigner, relayerSigner, voterBat
     return receipt;
   }
 
+  // Turns a contract error on a read (e.g. ElectionNotFound) into a ChainRejection.
+  async function read(fn) {
+    try {
+      return await fn();
+    } catch (err) {
+      throw decodeRevert(iface, err) || err;
+    }
+  }
+
   const semaphore = () =>
     (semaphorePromise ||= reader.semaphore().then((a) => new Contract(a, SEMAPHORE_ABI, relayerSigner)));
 
@@ -99,7 +108,7 @@ function createVotingClient({ address, abi, adminSigner, relayerSigner, voterBat
 
     // ── Reads ──
     async getElection(chainId) {
-      const e = await reader.getElection(chainId);
+      const e = await read(() => reader.getElection(chainId));
       return {
         title: e.title,
         offchainId: Number(e.offchainId),
@@ -109,14 +118,18 @@ function createVotingClient({ address, abi, adminSigner, relayerSigner, voterBat
         candidateCount: Number(e.candidateCount),
         voterCount: Number(e.voterCount),
         totalVotes: Number(e.totalVotes),
-        phase: PHASES[Number(await reader.phase(chainId))],
+        phase: PHASES[Number(await read(() => reader.phase(chainId)))],
       };
     },
     async getCandidates(chainId) {
-      return (await reader.getCandidates(chainId)).map((c) => ({ name: c.name, voteCount: Number(c.voteCount) }));
+      return (await read(() => reader.getCandidates(chainId))).map((c) => ({ name: c.name, voteCount: Number(c.voteCount) }));
     },
     async getWinners(chainId) {
-      return (await reader.getWinners(chainId)).map(Number);
+      return (await read(() => reader.getWinners(chainId))).map(Number);
+    },
+    /** How many elections exist on this blockchain. */
+    async electionCount() {
+      return Number(await reader.electionCount());
     },
     async scopeOf(chainId) {
       return (await reader.scopeOf(chainId)).toString();

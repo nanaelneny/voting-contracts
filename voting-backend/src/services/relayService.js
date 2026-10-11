@@ -4,7 +4,7 @@
 //  - It never receives or stores who the voter is (no login, no user id).
 //  - The relay log records only what's needed for performance evaluation:
 //    election, tx hash, outcome, gas and latency. No IP address, no proof.
-const { HttpError, badRequest, notFound, conflict } = require("../errors");
+const { HttpError, badRequest, notFound, conflict, CHAIN_MISMATCH_MESSAGE } = require("../errors");
 const { ChainRejection, PHASES } = require("../chain/votingClient");
 
 const UINT = /^[0-9]{1,78}$/;
@@ -51,6 +51,8 @@ function toHttpError(rej) {
     case "NoCandidates":
     case "NoVoterList":
       return conflict("This election isn't ready for voting", "ELECTION_NOT_READY");
+    case "ElectionNotFound":
+      return conflict(CHAIN_MISMATCH_MESSAGE, "CHAIN_MISMATCH");
     default:
       return new HttpError(502, "The blockchain rejected the vote", "RELAY_REJECTED");
   }

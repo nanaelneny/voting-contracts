@@ -446,6 +446,27 @@ describe("Backend API", function () {
     });
   });
 
+  describe("Database and blockchain out of step", function () {
+    it("explains clearly when an election isn't on the blockchain (e.g. local chain restarted)", async () => {
+      const ctx = await setup();
+      const { id } = await createElection(ctx);
+      // The database thinks election 7 is on-chain, but this fresh chain has no election 7.
+      await ctx.repo.setElectionChainId(id, 7);
+      await ctx.repo.markElectionPublished(id);
+
+      for (const res of [
+        await request(ctx.app).get(`/api/elections/${id}/results`),
+        await request(ctx.app).get(`/api/elections/${id}/group`),
+        await request(ctx.app).post(`/api/elections/${id}/finalize`).set(as(ctx.adminToken)),
+      ]) {
+        expect(res.status).to.equal(409);
+        expect(res.body.code).to.equal("CHAIN_MISMATCH");
+        expect(res.body.error).to.include("npm run db:reset");
+      }
+      expect(await ctx.chain.electionCount()).to.equal(0);
+    });
+  });
+
   describe("Phase when the blockchain clock lags", function () {
     const { effectivePhase } = require("../../voting-backend/src/services/electionService");
     const state = (phase) => ({ phase, startTime: new Date("2030-01-01T08:00:00Z"), endTime: new Date("2030-01-01T17:00:00Z") });
