@@ -28,11 +28,3 @@ src/
   pages/admin/             election officer screens
   components/              layout, results bars, shared UI
 ```
-
-## Privacy notes
-
-- The voter's secret key is created and kept in the browser (`localStorage`). Only the public
-  commitment is sent to the server. The backup file contains the secret, so voters must keep it private.
-- The ballot request is sent with `credentials: "omit"` and no `Authorization` header.
-- After voting, the browser stores only the transaction hash, not the voter's choice.
-- Before proving, the browser checks that the voter list from the server matches the root stored on-chain.
