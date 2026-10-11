@@ -86,7 +86,6 @@ function SetupChecklist({ candidates, registrations }) {
           </li>
         ))}
       </ol>
-      <p className="mt-3 text-xs text-muted">Students who register after publishing can still be approved and added until voting opens.</p>
     </section>
   );
 }
@@ -121,7 +120,6 @@ function Details({ election, onSaved }) {
       ) : (
         <div className="mt-3 text-sm">
           {election.description ? <p className="max-w-prose">{election.description}</p> : <p className="text-muted">No description.</p>}
-          <p className="mt-2 text-muted">These details are on the blockchain now and can't be changed.</p>
         </div>
       )}
     </section>
@@ -219,10 +217,6 @@ function Registrations({ election, state }) {
   return (
     <section aria-labelledby="registrations">
       <h2 id="registrations">Voter registrations</h2>
-      <p className="mt-1 text-sm text-muted">
-        Check each student is eligible to vote in this election. Approved voters go on the blockchain voter list when you
-        publish. After that their registration can't be changed.
-      </p>
 
       <div className="mt-4 flex gap-1 border-b border-rule" role="tablist">
         {TABS.map((t) => {
@@ -245,7 +239,7 @@ function Registrations({ election, state }) {
       {state.error && <ErrorNotice error={state.error} className="mt-3" />}
       {rows.length === 0 ? (
         <p className="py-6 text-sm text-muted">
-          {tab === "pending" ? "No registrations waiting. Students register from the election's page." : "None."}
+          None.
         </p>
       ) : (
         <div className="overflow-x-auto">
@@ -344,10 +338,9 @@ function ChainActions({ election, candidates, registrations, finalized, onDone }
         <div>
           <h3>Publish</h3>
           <p className="mt-1 text-sm text-muted">
-            Creates the election on the blockchain with {candidates.length} candidate{candidates.length === 1 ? "" : "s"} and{" "}
-            {approvedWaiting} approved voter{approvedWaiting === 1 ? "" : "s"}. Details and candidates can't be changed afterwards.
+            {candidates.length} candidate{candidates.length === 1 ? "" : "s"}, {approvedWaiting} approved voter{approvedWaiting === 1 ? "" : "s"}.
           </p>
-          {s === "publishing" && <Notice tone="warn" className="mt-2">A previous publish didn't finish. Publishing again picks up where it stopped.</Notice>}
+          {s === "publishing" && <Notice tone="warn" className="mt-2">The last publish didn't finish. Publish again to complete it.</Notice>}
           <div className="mt-3">
             <ConfirmButton
               className="btn-primary"
@@ -367,9 +360,8 @@ function ChainActions({ election, candidates, registrations, finalized, onDone }
           <h3>Add approved voters</h3>
           <p className="mt-1 text-sm text-muted">
             {approvedWaiting
-              ? `${approvedWaiting} approved student${approvedWaiting === 1 ? " isn't" : "s aren't"} on the blockchain voter list yet.`
-              : "Everyone you've approved is on the voter list."}{" "}
-            The list locks when voting opens.
+              ? `${approvedWaiting} approved student${approvedWaiting === 1 ? " isn't" : "s aren't"} on the voter list yet.`
+              : "Everyone approved is on the voter list."}
           </p>
           <button
             type="button"
@@ -382,16 +374,15 @@ function ChainActions({ election, candidates, registrations, finalized, onDone }
         </div>
       )}
 
-      {s === "open" && <p className="text-sm text-muted">Voting is open. Nothing can be changed until it closes {formatDateTime(election.endTime)}.</p>}
+      {s === "open" && <p className="text-sm text-muted">Voting is open until {formatDateTime(election.endTime)}.</p>}
 
       {s === "closed" && finalized && (
-        <p className="text-sm text-muted">The final result is recorded on the blockchain. Nothing more to do.</p>
+        <p className="text-sm text-muted">Final result recorded.</p>
       )}
 
       {s === "closed" && !finalized && (
         <div>
           <h3>Record the final result</h3>
-          <p className="mt-1 text-sm text-muted">Counts the ballots on the blockchain and records the winner permanently. Anyone can check it.</p>
           <button
             type="button"
             className="btn-primary mt-3"
@@ -406,7 +397,6 @@ function ChainActions({ election, candidates, registrations, finalized, onDone }
       {BEFORE_VOTING.includes(s) && (
         <div className="border-t border-rule pt-5">
           <h3>Cancel election</h3>
-          <p className="mt-1 text-sm text-muted">Only possible before voting opens. Voters will see that it was cancelled.</p>
           <div className="mt-3">
             <ConfirmButton
               className="btn-danger"
@@ -423,7 +413,6 @@ function ChainActions({ election, candidates, registrations, finalized, onDone }
       {s === "draft" && (
         <div className="border-t border-rule pt-5">
           <h3>Delete draft</h3>
-          <p className="mt-1 text-sm text-muted">Removes the draft and its registrations completely.</p>
           <div className="mt-3">
             <ConfirmButton
               className="btn-danger"

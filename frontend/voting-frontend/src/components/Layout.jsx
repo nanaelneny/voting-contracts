@@ -64,12 +64,6 @@ export default function Layout() {
         <Outlet />
       </main>
 
-      <footer className="border-t border-rule">
-        <p className="mx-auto max-w-5xl px-4 py-5 text-xs text-muted">
-          Ballots are verified with zero-knowledge proofs and counted on the blockchain. Nobody, including the election
-          officers, can see who cast which ballot.
-        </p>
-      </footer>
     </div>
   );
 }

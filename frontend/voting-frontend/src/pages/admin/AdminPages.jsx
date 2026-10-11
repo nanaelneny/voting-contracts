@@ -20,7 +20,7 @@ export function AdminHome() {
       </div>
 
       {data.elections.length === 0 ? (
-        <p className="mt-10 text-muted">No elections yet. Create one to start taking voter registrations.</p>
+        <p className="mt-10 text-muted">No elections yet.</p>
       ) : (
         <ul className="mt-8 divide-y divide-rule border-y border-rule">
           {data.elections.map((e) => (
@@ -83,7 +83,6 @@ export function ElectionForm({ initial, submitLabel, onSubmit, busy, error }) {
           <input id="end" type="datetime-local" required className="field" value={form.end} onChange={set("end")} />
         </div>
       </div>
-      <p className="text-xs text-muted">Registration stays open until voting opens. Times are in your computer's time zone.</p>
       <ErrorNotice error={error} />
       <button type="submit" className="btn-primary" disabled={busy}>{busy ? "Saving…" : submitLabel}</button>
     </form>
@@ -97,10 +96,6 @@ export function NewElection() {
     <div className="max-w-2xl">
       <Link to="/admin" className="text-sm font-semibold text-muted hover:text-ink">All elections</Link>
       <h1 className="mt-3">New election</h1>
-      <p className="mt-2 text-muted">
-        This creates a draft. Students can register for it straight away. You'll add candidates next, and publish it to
-        the blockchain before voting opens.
-      </p>
       <div className="panel mt-6 p-6">
         <ElectionForm
           submitLabel="Create draft"
@@ -129,10 +124,6 @@ export function RelayStats() {
     <div>
       <Link to="/admin" className="text-sm font-semibold text-muted hover:text-ink">All elections</Link>
       <h1 className="mt-3">Relay statistics</h1>
-      <p className="mt-2 max-w-prose text-muted">
-        Transactions the server submitted and paid for. Latency is the time from receiving a ballot to its confirmation on
-        the blockchain. Nothing here identifies voters.
-      </p>
       {rows.length === 0 ? (
         <p className="mt-8 text-muted">Nothing has been relayed yet.</p>
       ) : (

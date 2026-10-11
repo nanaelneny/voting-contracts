@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { Link, useLocation, useParams } from "react-router-dom";
 import { api } from "../lib/api";
 import { useAuth } from "../lib/auth";
-import { formatDateTime, formatWindow, relative } from "../lib/format";
+import { formatWindow, relative } from "../lib/format";
 import { backupFile, createIdentity, importBackup, loadIdentity, loadReceipt, saveReceipt } from "../lib/identity";
 import Results from "../components/Results";
 import { ErrorNotice, Notice, PageLoading, Spinner, StatusTag, useAction, useLoad } from "../components/ui";
@@ -44,14 +44,11 @@ export default function ElectionPage() {
       <div className="mt-8 grid gap-10 lg:grid-cols-[minmax(0,1fr)_20rem]">
         <div>
           {election.status === "cancelled" ? (
-            <Notice title="This election was cancelled.">No voting will take place.</Notice>
+            <Notice title="This election was cancelled." />
           ) : !user ? (
-            <Notice tone="violet" title="Log in to take part">
-              <p>
-                You need an account to register for this election and to vote.{" "}
-                <Link to="/login" state={{ from: location.pathname }} className="btn-link">Log in</Link> or{" "}
-                <Link to="/register" className="btn-link">create an account</Link>.
-              </p>
+            <Notice tone="violet">
+              <Link to="/login" state={{ from: location.pathname }} className="btn-link">Log in</Link> or{" "}
+              <Link to="/register" className="btn-link">create an account</Link> to register and vote.
             </Notice>
           ) : reg.loading ? (
             <Spinner />
@@ -74,7 +71,6 @@ export default function ElectionPage() {
           ) : (
             <CandidateList candidates={candidates} />
           )}
-          <HowItWorks />
         </aside>
       </div>
     </div>
@@ -97,22 +93,6 @@ function CandidateList({ candidates }) {
           ))}
         </ul>
       )}
-    </section>
-  );
-}
-
-function HowItWorks() {
-  return (
-    <section aria-labelledby="how" className="text-sm text-muted">
-      <h2 id="how" className="text-base text-ink">How your ballot stays secret</h2>
-      <p className="mt-2">
-        When you register, this browser creates a private voter key. Only a public fingerprint of it is sent to the
-        election officer.
-      </p>
-      <p className="mt-2">
-        When you vote, your browser proves you hold one of the registered keys without revealing which one. The ballot
-        is sent without your login, so it can't be traced back to you, and the proof stops anyone voting twice.
-      </p>
     </section>
   );
 }
@@ -177,11 +157,8 @@ function RegistrationSection({ election, registration, user, onChange }) {
     return (
       <section aria-labelledby="reg">
         <h2 id="reg">Register to vote</h2>
-        <p className="mt-2 max-w-prose text-muted">
-          Registering creates your private voter key in this browser and asks the election officer to add you to the
-          voter list. Register on the device you plan to vote from, or keep the backup file we'll offer you.
-        </p>
-        <button type="button" className="btn-primary mt-5" disabled={busy} onClick={register}>
+        <p className="mt-2 text-muted">Register from the device you'll vote on.</p>
+        <button type="button" className="btn-primary mt-4" disabled={busy} onClick={register}>
           {busy ? "Registering…" : "Register for this election"}
         </button>
         <ErrorNotice error={error} className="mt-4" />
@@ -191,12 +168,12 @@ function RegistrationSection({ election, registration, user, onChange }) {
 
   const opens = relative(election.startTime);
   const status = registration.onChain
-    ? { tone: "good", title: "You're on the voter list.", body: `Voting opens ${opens}, on ${formatDateTime(election.startTime)}. Come back then to cast your ballot.` }
+    ? { tone: "good", title: "You're on the voter list.", body: `Voting opens ${opens}.` }
     : registration.status === "approved"
-      ? { tone: "good", title: "Your registration is approved.", body: "You'll be added to the voter list when the election officer publishes it." }
+      ? { tone: "good", title: "Your registration is approved.", body: "You'll be added to the voter list soon." }
       : registration.status === "rejected"
-        ? { tone: "bad", title: "Your registration wasn't approved.", body: "Contact the election officer if you think this is a mistake." }
-        : { tone: "info", title: "Waiting for approval.", body: "The election officer will check your registration before voting opens." };
+        ? { tone: "bad", title: "Your registration wasn't approved.", body: "Contact the election officer if this is a mistake." }
+        : { tone: "info", title: "Waiting for approval.", body: null };
 
   return (
     <section aria-labelledby="reg" className="space-y-5">
@@ -207,10 +184,7 @@ function RegistrationSection({ election, registration, user, onChange }) {
         registration.status !== "rejected" && (
           <div className="panel p-5">
             <h3>Back up your voter key</h3>
-            <p className="mt-1 text-sm text-muted">
-              Your key is stored only in this browser. To vote from another device, or if you clear your browser data,
-              you'll need this file. Keep it private: anyone with it can cast your ballot.
-            </p>
+            <p className="mt-1 text-sm text-muted">Needed to vote from another device. Keep it private.</p>
             <button type="button" className="btn-secondary mt-4" onClick={() => downloadBackup(identity, election)}>
               Download backup file
             </button>
@@ -218,13 +192,11 @@ function RegistrationSection({ election, registration, user, onChange }) {
         )
       ) : (
         <div className="panel space-y-4 p-5">
-          <Notice tone="warn" title="This browser doesn't have your voter key.">
-            You registered from another device or browser, or this browser's data was cleared.
-          </Notice>
+          <Notice tone="warn" title="This browser doesn't have your voter key." />
           <RestoreBackup election={election} user={user} registration={registration} onRestored={setIdentity} />
           {!registration.onChain && registrationOpen && (
             <div>
-              <p className="text-sm text-muted">No backup? You can register again from this browser. Your old key stops working.</p>
+              <p className="text-sm text-muted">No backup? Register again here. Your old key will stop working.</p>
               <button type="button" className="btn-secondary mt-2" disabled={busy} onClick={register}>
                 Register again from this browser
               </button>
@@ -242,20 +214,16 @@ function RegistrationSection({ election, registration, user, onChange }) {
 function Receipt({ receipt }) {
   if (receipt.already) {
     return (
-      <Notice tone="good" title="A ballot has already been cast with your voter key.">
-        Each voter can cast one ballot per election, so your ballot is already counted.
-      </Notice>
+      <Notice tone="good" title="You've already voted in this election." />
     );
   }
   return (
     <Notice tone="good" title="Your ballot was counted.">
-      <p>It was recorded on the blockchain {receipt.at ? `on ${formatDateTime(receipt.at)}` : ""}.</p>
       {receipt.txHash && (
-        <p className="mt-1">
+        <p>
           Transaction <code className="break-all text-xs">{receipt.txHash}</code>
         </p>
       )}
-      <p className="mt-2">Your choice isn't stored in this browser or linked to your account.</p>
     </Notice>
   );
 }
@@ -267,17 +235,13 @@ function BallotSection({ election, candidates, registration, user }) {
   if (receipt) return <Receipt receipt={receipt} />;
   if (!registration || !registration.onChain) {
     return (
-      <Notice title="You're not on the voter list for this election.">
-        Only students who registered and were approved before voting opened can vote.
-      </Notice>
+      <Notice title="You're not on the voter list for this election." />
     );
   }
   if (!identity || identity.commitment.toString() !== registration.commitment) {
     return (
       <div className="space-y-4">
-        <Notice tone="warn" title="This browser doesn't have your voter key.">
-          Restore it from the backup file you downloaded when you registered.
-        </Notice>
+        <Notice tone="warn" title="This browser doesn't have your voter key." />
         <RestoreBackup election={election} user={user} registration={registration} onRestored={setIdentity} />
       </div>
     );

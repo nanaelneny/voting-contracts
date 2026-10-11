@@ -68,7 +68,6 @@ export function RegisterPage() {
   return (
     <AuthShell
       title="Create your account"
-      intro="Your account lets you register for elections. Your ballot itself is never linked to it."
       footer={<>Already have an account? <Link to="/login" className="btn-link">Log in</Link></>}
     >
       <form onSubmit={submit} className="space-y-4">
@@ -79,7 +78,6 @@ export function RegisterPage() {
         <div>
           <label htmlFor="studentId" className="label">Student ID</label>
           <input id="studentId" className="field" value={form.studentId} onChange={set("studentId")} />
-          <p className="mt-1 text-xs text-muted">The election officer uses this to check you're eligible.</p>
         </div>
         <div>
           <label htmlFor="email" className="label">Email</label>

@@ -25,12 +25,9 @@ export default function ElectionsPage() {
   return (
     <div>
       <h1>Elections</h1>
-      <p className="mt-2 max-w-prose text-muted">
-        Register for an election before voting opens. When it opens, you can cast one secret ballot.
-      </p>
 
       {elections.filter((e) => e.status !== "cancelled").length === 0 && (
-        <p className="mt-10 text-muted">There are no elections yet. Check back when the election officer announces one.</p>
+        <p className="mt-10 text-muted">No elections yet.</p>
       )}
 
       {GROUPS.map(({ title, statuses }) => {

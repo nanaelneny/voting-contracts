@@ -34,7 +34,7 @@ export default function Results({ electionId, refreshMs = 0 }) {
         <p className="mt-2 text-sm font-semibold text-warn">The top candidates are tied.</p>
       )}
       {data.phase === "ended" && (
-        <p className="mt-2 text-sm text-muted">Voting has closed. The result becomes final once an election officer records it.</p>
+        <p className="mt-2 text-sm text-muted">Waiting for the final result to be recorded.</p>
       )}
 
       <ol className="mt-4 space-y-3">
