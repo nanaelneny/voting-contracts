@@ -63,6 +63,14 @@ function createQueue() {
 }
 
 const toSeconds = (date) => Math.floor(new Date(date).getTime() / 1000);
+const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+
+// Contract errors that can be caused by asking a server that hasn't seen our latest
+// transaction yet (see "Out-of-date servers" below), rather than by a real problem.
+const MAYBE_STALE = new Set([
+  "ElectionNotFound", "WrongPhase", "NoCandidates", "NoVoterList", "InvalidCandidate",
+  "Semaphore__MerkleTreeRootIsNotPartOfTheGroup", "Semaphore__GroupHasNoMembers",
+]);
 
 // onReceipt(method, receipt) is called after every transaction lands (used by the evaluation script).
 function createVotingClient({ address, abi, adminSigner, relayerSigner, voterBatchSize = 100, onReceipt = () => {} }) {
@@ -77,29 +85,57 @@ function createVotingClient({ address, abi, adminSigner, relayerSigner, voterBat
   const relayQueue = sameAccount ? adminQueue : createQueue();
   let semaphorePromise;
 
+  // ── Out-of-date servers ──
+  // Public RPC addresses (like https://sepolia.base.org) are really many servers behind
+  // one address, and they don't all learn about a new block at the same moment. Right
+  // after our transaction lands, the next request may reach a server that hasn't seen it
+  // yet: it would say the election we just created doesn't exist. So after each of our
+  // transactions, we wait until the server has reached that block, and if a request is
+  // still refused in a way an out-of-date server could explain, we try again briefly.
+  const provider = relayerSigner.provider;
+  let lastBlock = 0; // newest block containing one of our transactions
+  let lastWriteAt = 0;
+
+  async function caughtUp() {
+    if (!lastBlock || !provider) return;
+    for (let i = 0; i < 20; i++) {
+      if (Number(await provider.send("eth_blockNumber", [])) >= lastBlock) return;
+      await sleep(500);
+    }
+  }
+
+  /** Runs a read or simulation, turning contract errors into ChainRejections. */
+  async function fresh(fn) {
+    await caughtUp();
+    for (let attempt = 0; ; attempt++) {
+      try {
+        return await fn();
+      } catch (err) {
+        const rejection = decodeRevert(iface, err);
+        // Servers catch up within a few seconds, so only retry shortly after our own write.
+        const recent = Date.now() - lastWriteAt < 15_000;
+        if (rejection && recent && MAYBE_STALE.has(rejection.code) && attempt < 2) {
+          await sleep(1000 * (attempt + 1));
+          continue;
+        }
+        throw rejection || err;
+      }
+    }
+  }
+
   // Simulate first (so a doomed transaction costs no gas), then send and wait for it.
   async function send(contract, method, args, queue) {
-    let gas;
-    try {
-      gas = await contract[method].estimateGas(...args);
-    } catch (err) {
-      throw decodeRevert(iface, err) || err;
-    }
+    const gas = await fresh(() => contract[method].estimateGas(...args));
     const tx = await queue(() => contract[method](...args, { gasLimit: (gas * 12n) / 10n }));
     const receipt = await tx.wait();
     if (receipt.status !== 1) throw new ChainRejection("RevertedOnChain");
+    lastBlock = Math.max(lastBlock, receipt.blockNumber);
+    lastWriteAt = Date.now();
     onReceipt(method, receipt);
     return receipt;
   }
 
-  // Turns a contract error on a read (e.g. ElectionNotFound) into a ChainRejection.
-  async function read(fn) {
-    try {
-      return await fn();
-    } catch (err) {
-      throw decodeRevert(iface, err) || err;
-    }
-  }
+  const read = fresh;
 
   const semaphore = () =>
     (semaphorePromise ||= reader.semaphore().then((a) => new Contract(a, SEMAPHORE_ABI, relayerSigner)));
@@ -131,19 +167,20 @@ function createVotingClient({ address, abi, adminSigner, relayerSigner, voterBat
     },
     /** How many elections exist on this blockchain. */
     async electionCount() {
-      return Number(await reader.electionCount());
+      return Number(await read(() => reader.electionCount()));
     },
     async scopeOf(chainId) {
-      return (await reader.scopeOf(chainId)).toString();
+      return (await read(() => reader.scopeOf(chainId))).toString();
     },
     async getGroupRoot(groupId) {
-      return (await (await semaphore()).getMerkleTreeRoot(groupId)).toString();
+      const s = await semaphore();
+      return (await read(() => s.getMerkleTreeRoot(groupId))).toString();
     },
     /** Position of a commitment in the group, or null if it isn't a member. */
     async memberIndex(groupId, commitment) {
       const s = await semaphore();
-      if (!(await s.hasMember(groupId, BigInt(commitment)))) return null;
-      return Number(await s.indexOf(groupId, BigInt(commitment)));
+      if (!(await read(() => s.hasMember(groupId, BigInt(commitment))))) return null;
+      return Number(await read(() => s.indexOf(groupId, BigInt(commitment))));
     },
 
     // ── Admin transactions ──
