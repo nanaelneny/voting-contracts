@@ -29,6 +29,7 @@ const CONFIG = {
   voterBatchSize: 2, // small, so the tests exercise batching
   relayRateLimitPerMinute: 1000,
   minVoters: 0, // most tests publish small elections; one test checks the minimum
+  allowedEmailDomains: ["st.knust.edu.gh"],
 };
 
 /**
@@ -100,7 +101,7 @@ describe("Backend API", function () {
 
     it("public sign-up always creates a voter, and /me returns the account", async () => {
       const res = await request(ctx.app).post("/api/auth/register").send({
-        fullName: "Ama Mensah", email: "AMA@st.knust.edu.gh", password: "password123", role: "admin",
+        fullName: "Ama Mensah", email: "AMA@st.knust.edu.gh", studentId: "20260001", password: "password123", role: "admin",
       });
       expect(res.status).to.equal(201);
       expect(res.body.user).to.include({ email: "ama@st.knust.edu.gh", role: "voter" });
@@ -111,12 +112,28 @@ describe("Backend API", function () {
     });
 
     it("rejects duplicate emails, short passwords and bad emails", async () => {
-      const base = { fullName: "Kofi", email: "kofi@st.knust.edu.gh", password: "password123" };
+      const base = { fullName: "Kofi", email: "kofi@st.knust.edu.gh", studentId: "20260002", password: "password123" };
       expect((await request(ctx.app).post("/api/auth/register").send(base)).status).to.equal(201);
       const dup = await request(ctx.app).post("/api/auth/register").send(base);
       expect(dup.status).to.equal(409);
-      expect((await request(ctx.app).post("/api/auth/register").send({ ...base, email: "x@y.z", password: "short" })).status).to.equal(400);
+      expect((await request(ctx.app).post("/api/auth/register").send({ ...base, email: "x@st.knust.edu.gh", password: "short" })).status).to.equal(400);
       expect((await request(ctx.app).post("/api/auth/register").send({ ...base, email: "not-an-email" })).status).to.equal(400);
+    });
+
+    it("one person, one account: student ID required and unique, school email only", async () => {
+      const base = { fullName: "Yaw", email: "yaw@st.knust.edu.gh", password: "password123" };
+      const noId = await request(ctx.app).post("/api/auth/register").send(base);
+      expect(noId.status).to.equal(400);
+
+      const sameId = await request(ctx.app).post("/api/auth/register").send({ ...base, email: "yaw2@st.knust.edu.gh", studentId: "20260002" });
+      expect(sameId.status).to.equal(409); // Kofi's student ID, from the test above
+      expect(sameId.body.error).to.match(/student ID/);
+
+      const gmail = await request(ctx.app).post("/api/auth/register").send({ ...base, email: "yaw@gmail.com", studentId: "20260003" });
+      expect(gmail.body.code).to.equal("EMAIL_DOMAIN");
+
+      const rules = await request(ctx.app).get("/api/auth/signup-rules");
+      expect(rules.body.allowedEmailDomains).to.deep.equal(["st.knust.edu.gh"]);
     });
 
     it("login checks the password and doesn't reveal whether an email exists", async () => {

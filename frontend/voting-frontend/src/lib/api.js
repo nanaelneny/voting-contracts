@@ -61,6 +61,7 @@ async function request(method, path, { body, anonymous = false } = {}) {
 
 export const api = {
   // Accounts
+  signupRules: () => request("GET", "/auth/signup-rules", { anonymous: true }),
   register: (body) => request("POST", "/auth/register", { body }),
   login: (body) => request("POST", "/auth/login", { body }),
   me: () => request("GET", "/auth/me"),

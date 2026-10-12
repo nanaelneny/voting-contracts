@@ -38,6 +38,7 @@ async function main() {
     minPublishLeadSeconds: Number(process.env.MIN_PUBLISH_LEAD_SECONDS || 60),
     voterBatchSize: 100,
     minVoters: Number(process.env.MIN_VOTERS ?? 3),
+    allowedEmailDomains: [],
     relayRateLimitPerMinute: 100,
   };
 
