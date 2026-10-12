@@ -2,7 +2,9 @@ require("@nomicfoundation/hardhat-toolbox");
 require("dotenv").config();
 
 // Public test networks. The key is the admin account's private key, kept in .env (never committed).
-const { DEPLOYER_PRIVATE_KEY } = process.env;
+// MetaMask exports keys without the "0x" at the start, so add it if it's missing.
+const withHexPrefix = (key) => (key && !key.startsWith("0x") ? `0x${key}` : key);
+const DEPLOYER_PRIVATE_KEY = withHexPrefix(process.env.DEPLOYER_PRIVATE_KEY?.trim());
 const BASE_SEPOLIA_RPC_URL = process.env.BASE_SEPOLIA_RPC_URL || "https://sepolia.base.org";
 const SEPOLIA_RPC_URL = process.env.SEPOLIA_RPC_URL || "https://ethereum-sepolia-rpc.publicnode.com";
 const publicNet = (url) => (DEPLOYER_PRIVATE_KEY ? { url, accounts: [DEPLOYER_PRIVATE_KEY] } : { url });

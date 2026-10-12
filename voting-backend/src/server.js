@@ -2,7 +2,7 @@
 //   npm start        (or: npm run dev  to restart on file changes)
 const path = require("path");
 const { Wallet } = require("ethers");
-const { loadConfig } = require("./config");
+const { loadConfig, EXPLORERS } = require("./config");
 const { createApp } = require("./app");
 const { createMssqlRepository } = require("./db/mssqlRepository");
 const { createVotingClient } = require("./chain/votingClient");
@@ -31,7 +31,9 @@ async function main() {
 
   const repo = await createMssqlRepository(config.db);
   await warnIfChainWasReset(repo, chain);
-  const app = createApp({ repo, chain, config, chainInfo: { chainId: Number(network.chainId) } });
+  const chainId = Number(network.chainId);
+  const explorerUrl = config.chain.explorerUrl || EXPLORERS[chainId] || null;
+  const app = createApp({ repo, chain, config, chainInfo: { chainId, explorerUrl } });
 
   app.listen(config.port, () => {
     console.log(`Voting API on http://localhost:${config.port}  (contract ${address}, chain ${network.chainId})`);

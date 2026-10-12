@@ -7,6 +7,9 @@ function required(name) {
   return value;
 }
 
+// MetaMask exports private keys without the "0x" at the start; ethers needs it.
+const withHexPrefix = (key) => (key && !key.trim().startsWith("0x") ? `0x${key.trim()}` : key && key.trim());
+
 function loadConfig() {
   return {
     port: Number(process.env.PORT || 5000),
@@ -29,11 +32,13 @@ function loadConfig() {
     chain: {
       rpcUrl: required("RPC_URL"),
       // Owns the VotingV2 contract: creates elections, adds candidates and voters.
-      adminPrivateKey: required("ADMIN_PRIVATE_KEY"),
+      adminPrivateKey: withHexPrefix(required("ADMIN_PRIVATE_KEY")),
       // Pays gas for voters' ballots. Can be the same key as the admin for local testing.
-      relayerPrivateKey: process.env.RELAYER_PRIVATE_KEY || required("ADMIN_PRIVATE_KEY"),
+      relayerPrivateKey: withHexPrefix(process.env.RELAYER_PRIVATE_KEY || required("ADMIN_PRIVATE_KEY")),
       // Optional: defaults to abi/VotingV2.address.json written by the deploy script.
       contractAddress: process.env.CONTRACT_ADDRESS,
+      // Block explorer website, for receipt links. Known test networks are filled in automatically.
+      explorerUrl: process.env.EXPLORER_URL,
     },
 
     // Voting must open at least this long after publishing, so setup transactions can land.
@@ -43,4 +48,10 @@ function loadConfig() {
   };
 }
 
-module.exports = { loadConfig };
+// Block explorers for the networks we deploy to, by chain ID.
+const EXPLORERS = {
+  84532: "https://sepolia.basescan.org", // Base Sepolia
+  11155111: "https://sepolia.etherscan.io", // Ethereum Sepolia
+};
+
+module.exports = { loadConfig, EXPLORERS };

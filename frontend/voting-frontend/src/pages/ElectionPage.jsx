@@ -212,6 +212,7 @@ function RegistrationSection({ election, registration, user, onChange }) {
 // ───────────────────────────────── Voting ─────────────────────────────────
 
 function Receipt({ receipt }) {
+  const { data: chain } = useLoad(() => api.getChain(), []);
   if (receipt.already) {
     return (
       <Notice tone="good" title="You've already voted in this election." />
@@ -222,6 +223,13 @@ function Receipt({ receipt }) {
       {receipt.txHash && (
         <p>
           Transaction <code className="break-all text-xs">{receipt.txHash}</code>
+        </p>
+      )}
+      {receipt.txHash && chain?.explorerUrl && (
+        <p className="mt-1">
+          <a className="btn-link" href={`${chain.explorerUrl}/tx/${receipt.txHash}`} target="_blank" rel="noreferrer">
+            View it on the blockchain
+          </a>
         </p>
       )}
     </Notice>

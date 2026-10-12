@@ -69,6 +69,7 @@ export const api = {
   listElections: () => request("GET", "/elections"),
   getElection: (id) => request("GET", `/elections/${id}`),
   getResults: (id) => request("GET", `/elections/${id}/results`),
+  getChain: () => request("GET", "/chain", { anonymous: true }),
   getGroup: (id) => request("GET", `/elections/${id}/group`, { anonymous: true }),
 
   // Voter registration
