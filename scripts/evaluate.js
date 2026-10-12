@@ -29,6 +29,7 @@ const { createVotingClient } = require(path.join(BACKEND, "src", "chain", "votin
 const { createProvider } = require(path.join(BACKEND, "src", "chain", "provider"));
 const { parseProof } = require(path.join(BACKEND, "src", "services", "relayService"));
 const { EXPLORERS } = require(path.join(BACKEND, "src", "config"));
+const { findDeployment } = require(path.join(BACKEND, "src", "chain", "deployment"));
 
 const ARTIFACTS_DIR = path.dirname(require.resolve("@zk-kit/semaphore-artifacts/package.json"));
 const NETWORK_NAMES = { 31337: "local-hardhat", 84532: "base-sepolia", 11155111: "ethereum-sepolia" };
@@ -69,13 +70,10 @@ async function waitForPhase(chain, id, want) {
 }
 
 async function main() {
-  const abiDir = path.join(BACKEND, "abi");
-  if (!fs.existsSync(path.join(abiDir, "VotingV2.address.json"))) throw new Error("No deployed contract. Deploy first (npm run deploy:local or deploy:base-sepolia).");
-  const deployment = require(path.join(abiDir, "VotingV2.address.json"));
-  const { abi } = require(path.join(abiDir, "VotingV2.json"));
-
   const provider = createProvider(process.env.RPC_URL);
   const chainId = Number((await provider.getNetwork()).chainId);
+  const deployment = findDeployment(chainId, process.env.CONTRACT_ADDRESS);
+  const { abi } = deployment;
   const network = NETWORK_NAMES[chainId] || `chain-${chainId}`;
   const explorer = EXPLORERS[chainId];
   const withPrefix = (k) => (k && !k.startsWith("0x") ? `0x${k}` : k);
@@ -228,9 +226,13 @@ ${rows.filter((r) => r.step !== "vote").map((r) => `| ${r.step} | ${r.ms} |`).jo
   fs.writeFileSync(`${base}.md`, md);
   console.log(`\n${md}`);
   log(`Saved ${path.relative(ROOT, base)}.csv and .md`);
+  provider.destroy(); // close the connection so the script exits
 }
 
-main().catch((err) => {
-  console.error("Evaluation failed:", err.message);
-  process.exitCode = 1;
-});
+main().then(
+  () => process.exit(0),
+  (err) => {
+    console.error("Evaluation failed:", err.message);
+    process.exit(1);
+  }
+);

@@ -5,26 +5,22 @@
 //   npm run demo            (voting-backend, terminal 3)
 //
 // Log in as admin@demo.test / demo-admin-123
-const path = require("path");
 const bcrypt = require("bcryptjs");
 const { Wallet } = require("ethers");
 const { createApp } = require("../src/app");
 const { createMemoryRepository } = require("../src/db/memoryRepository");
 const { createVotingClient } = require("../src/chain/votingClient");
 const { createProvider } = require("../src/chain/provider");
+const { findDeployment } = require("../src/chain/deployment");
 
 const HARDHAT_ADMIN = "0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80";
 const HARDHAT_RELAYER = "0x59c6995e998f97a5a0044966f0945389dc9e86dae88c7a8412f4603b6b78690d";
 
 async function main() {
-  const abiDir = path.join(__dirname, "..", "abi");
-  if (!require("fs").existsSync(path.join(abiDir, "VotingV2.address.json"))) {
-    throw new Error('Contract not deployed yet. Run "npm run deploy:local" in the project root first.');
-  }
-  const deployment = require(path.join(abiDir, "VotingV2.address.json"));
-  const { abi } = require(path.join(abiDir, "VotingV2.json"));
   const provider = createProvider(process.env.RPC_URL || "http://127.0.0.1:8545");
   const network = await provider.getNetwork();
+  const deployment = findDeployment(Number(network.chainId));
+  const { abi } = deployment;
 
   // Deployments are recorded per chain; make sure the contract really exists on this one.
   if ((await provider.getCode(deployment.address)) === "0x") {

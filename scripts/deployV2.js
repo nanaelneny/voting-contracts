@@ -7,13 +7,10 @@
 // On public networks it uses the Semaphore contract the Semaphore team already
 // deployed (same address on every network they support), so only VotingV2 is deployed.
 // SEMAPHORE_ADDRESS=0x...  use a different Semaphore deployment instead.
-const fs = require("fs");
-const path = require("path");
 const { ethers, artifacts, network } = require("hardhat");
 
-const ROOT = path.join(__dirname, "..");
 // Only the backend talks to the contract; the frontend goes through the backend.
-const TARGETS = [path.join(ROOT, "voting-backend", "abi")];
+const { saveDeployment } = require("../voting-backend/src/chain/deployment");
 // https://docs.semaphore.pse.dev/deployed-contracts
 const OFFICIAL_SEMAPHORE = "0x8A1fd199516489B0Fb7153EB5f075cDAC83c693D";
 const LOCAL_NETWORKS = ["hardhat", "localhost"];
@@ -49,13 +46,8 @@ async function main() {
   console.log(`VotingV2 deployed to ${address}`);
 
   const { abi } = await artifacts.readArtifact("VotingV2");
-  const info = { address, semaphore: semaphoreAddress, chainId: Number(chainId), network: network.name };
-  for (const dir of TARGETS) {
-    fs.mkdirSync(dir, { recursive: true });
-    fs.writeFileSync(path.join(dir, "VotingV2.json"), JSON.stringify({ abi }, null, 2));
-    fs.writeFileSync(path.join(dir, "VotingV2.address.json"), JSON.stringify(info, null, 2));
-  }
-  console.log("ABI and address written to voting-backend/abi");
+  saveDeployment({ abi, chainId: Number(chainId), address, semaphore: semaphoreAddress, network: network.name });
+  console.log(`Recorded in voting-backend/abi/deployments.json (for chain ${chainId})`);
 }
 
 main().catch((err) => {
