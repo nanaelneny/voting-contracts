@@ -24,7 +24,7 @@ const { Identity, Group, generateProof } = require("@semaphore-protocol/core");
 const ROOT = path.join(__dirname, "..");
 const BACKEND = path.join(ROOT, "voting-backend");
 require(path.join(BACKEND, "node_modules", "dotenv")).config({ path: path.join(BACKEND, ".env") });
-const { Wallet, formatEther, formatUnits } = require(path.join(BACKEND, "node_modules", "ethers"));
+const { Wallet, formatEther } = require(path.join(BACKEND, "node_modules", "ethers"));
 const { createVotingClient } = require(path.join(BACKEND, "src", "chain", "votingClient"));
 const { createProvider } = require(path.join(BACKEND, "src", "chain", "provider"));
 const { parseProof } = require(path.join(BACKEND, "src", "services", "relayService"));
@@ -38,7 +38,8 @@ const CANDIDATES = ["Ama Owusu", "Kofi Mensah", "Esi Boateng"];
 // Setup transactions must land before voting opens; slower networks need longer.
 const START_IN = Number(process.env.START_IN_SECONDS || 90);
 const VOTING_SECONDS = Number(process.env.VOTING_SECONDS || Math.max(120, VOTERS * 20));
-const ETH_PRICE_USD = process.env.ETH_PRICE_USD ? Number(process.env.ETH_PRICE_USD) : null;
+// Accepts "2521.67", "2,521.67" or "$2521.67".
+const ETH_PRICE_USD = process.env.ETH_PRICE_USD ? Number(process.env.ETH_PRICE_USD.replace(/[$,\s]/g, "")) || null : null;
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 const log = (...a) => console.log(new Date().toISOString().slice(11, 19), ...a);
@@ -80,7 +81,18 @@ async function main() {
   const withPrefix = (k) => (k && !k.startsWith("0x") ? `0x${k}` : k);
   const admin = new Wallet(withPrefix(process.env.ADMIN_PRIVATE_KEY.trim()), provider);
   const relayer = new Wallet(withPrefix((process.env.RELAYER_PRIVATE_KEY || process.env.ADMIN_PRIVATE_KEY).trim()), provider);
-  const chain = createVotingClient({ address: deployment.address, abi, adminSigner: admin, relayerSigner: relayer });
+  // Every transaction's receipt, so costs come from the receipts themselves rather than
+  // from balances (public RPC servers can briefly report a slightly out-of-date balance).
+  const receipts = [];
+  const chain = createVotingClient({
+    address: deployment.address, abi, adminSigner: admin, relayerSigner: relayer,
+    onReceipt: (method, receipt) => receipts.push({ method, hash: receipt.hash }),
+  });
+  const feesOf = async (list) => {
+    let total = 0n;
+    for (const r of list) total += (await feeOf(provider, r.hash)).total;
+    return total;
+  };
 
   const [adminStart, relayerStart] = await Promise.all([provider.getBalance(admin.address), provider.getBalance(relayer.address)]);
   log(`Network ${network} (chain ${chainId}), contract ${deployment.address}`);
@@ -104,7 +116,7 @@ async function main() {
   t = Date.now();
   await chain.addVoters(electionId, identities.map((i) => i.commitment.toString()));
   rows.push({ step: `addVoters (${VOTERS})`, ms: Date.now() - t });
-  const setupCost = adminStart - (await provider.getBalance(admin.address));
+  const setupCost = await feesOf(receipts.filter((r) => ["createElection", "addCandidates", "addVoters"].includes(r.method)));
   log(`Election #${electionId} set up. Admin paid ${formatEther(setupCost)} ETH`);
 
   // ── 2 + 3. Voting (proofs + relayed ballots) ──
@@ -136,8 +148,9 @@ async function main() {
     rows.push(row);
   }
 
-  // A second ballot from the same voter must be refused, and cost nothing.
-  const before = await provider.getBalance(relayer.address);
+  // A second ballot from the same voter must be refused before anything is sent, so it
+  // costs nothing. Proof: the relayer's transaction count (nonce) doesn't change.
+  const nonceBefore = await provider.getTransactionCount(relayer.address, "pending");
   const again = await generateProof(identities[0], group, 0, scope, depth, artifacts);
   let doubleVote = "accepted (unexpected!)";
   try {
@@ -145,8 +158,9 @@ async function main() {
   } catch (err) {
     doubleVote = `refused (${err.code})`;
   }
-  const doubleVoteCost = before - (await provider.getBalance(relayer.address));
-  log(`Double vote: ${doubleVote}, cost ${formatEther(doubleVoteCost)} ETH`);
+  const sent = (await provider.getTransactionCount(relayer.address, "pending")) - nonceBefore;
+  const doubleVoteNote = sent === 0 ? "no transaction sent, cost 0 ETH" : `${sent} transaction(s) sent (unexpected!)`;
+  log(`Double vote: ${doubleVote}, ${doubleVoteNote}`);
 
   // ── 4. Finalize ──
   log(`Waiting for voting to close (${end.toISOString().slice(11, 19)})…`);
@@ -168,7 +182,7 @@ async function main() {
   const latency = stats(votes.map((r) => r.ms));
   const gas = stats(votes.map((r) => Number(r.gasUsed)));
   const fee = stats(votes.map((r) => eth(r.total)));
-  const relayerSpent = relayerStart - (await provider.getBalance(relayer.address));
+  const relayerSpent = await feesOf(receipts.filter((r) => ["vote", "finalize"].includes(r.method)));
 
   const outDir = path.join(ROOT, "evaluation", "results");
   fs.mkdirSync(outDir, { recursive: true });
@@ -185,7 +199,7 @@ async function main() {
 - Contract: \`${deployment.address}\`${explorer ? ` ([explorer](${explorer}/address/${deployment.address}))` : ""}
 - Election #${electionId}: ${VOTERS} voters, ${CANDIDATES.length} candidates
 - Votes accepted: ${votes.length} of ${VOTERS}${failed ? ` (${failed} failed)` : ""}
-- Double vote by the same voter: ${doubleVote}, cost to relayer ${formatEther(doubleVoteCost)} ETH
+- Double vote by the same voter: ${doubleVote}, ${doubleVoteNote}
 - Final tally: ${tally.map((c) => `${c.name} ${c.voteCount}`).join(", ")}
 
 ## Per vote

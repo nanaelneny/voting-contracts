@@ -64,7 +64,8 @@ function createQueue() {
 
 const toSeconds = (date) => Math.floor(new Date(date).getTime() / 1000);
 
-function createVotingClient({ address, abi, adminSigner, relayerSigner, voterBatchSize = 100 }) {
+// onReceipt(method, receipt) is called after every transaction lands (used by the evaluation script).
+function createVotingClient({ address, abi, adminSigner, relayerSigner, voterBatchSize = 100, onReceipt = () => {} }) {
   const iface = new Interface([...abi, ...EXTRA_ERRORS]);
   const reader = new Contract(address, iface, relayerSigner);
   const admin = reader.connect(adminSigner);
@@ -87,6 +88,7 @@ function createVotingClient({ address, abi, adminSigner, relayerSigner, voterBat
     const tx = await queue(() => contract[method](...args, { gasLimit: (gas * 12n) / 10n }));
     const receipt = await tx.wait();
     if (receipt.status !== 1) throw new ChainRejection("RevertedOnChain");
+    onReceipt(method, receipt);
     return receipt;
   }
 
