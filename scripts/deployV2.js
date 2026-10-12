@@ -4,8 +4,9 @@
 //   npm run node          (terminal 1)
 //   npm run deploy:local  (terminal 2)
 //
-// SEMAPHORE_ADDRESS=0x...  reuse an existing Semaphore deployment (e.g. the
-//                          official one on a public testnet) instead of deploying it.
+// On public networks it uses the Semaphore contract the Semaphore team already
+// deployed (same address on every network they support), so only VotingV2 is deployed.
+// SEMAPHORE_ADDRESS=0x...  use a different Semaphore deployment instead.
 const fs = require("fs");
 const path = require("path");
 const { ethers, artifacts, network } = require("hardhat");
@@ -13,6 +14,9 @@ const { ethers, artifacts, network } = require("hardhat");
 const ROOT = path.join(__dirname, "..");
 // Only the backend talks to the contract; the frontend goes through the backend.
 const TARGETS = [path.join(ROOT, "voting-backend", "abi")];
+// https://docs.semaphore.pse.dev/deployed-contracts
+const OFFICIAL_SEMAPHORE = "0x8A1fd199516489B0Fb7153EB5f075cDAC83c693D";
+const LOCAL_NETWORKS = ["hardhat", "localhost"];
 
 async function deploySemaphoreStack() {
   const poseidon = await ethers.deployContract("poseidon-solidity/PoseidonT3.sol:PoseidonT3");
@@ -26,9 +30,11 @@ async function deploySemaphoreStack() {
 
 async function main() {
   const [admin] = await ethers.getSigners();
+  if (!admin) throw new Error("No deployer key. Put DEPLOYER_PRIVATE_KEY in the .env file in the project root.");
   console.log(`Deploying on "${network.name}" as ${admin.address}`);
 
-  let semaphoreAddress = process.env.SEMAPHORE_ADDRESS;
+  let semaphoreAddress =
+    process.env.SEMAPHORE_ADDRESS || (LOCAL_NETWORKS.includes(network.name) ? null : OFFICIAL_SEMAPHORE);
   if (semaphoreAddress) {
     console.log(`Using existing Semaphore at ${semaphoreAddress}`);
   } else {
