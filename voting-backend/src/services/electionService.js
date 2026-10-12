@@ -82,6 +82,15 @@ function createElectionService({ repo, chain, clock, config }) {
 
     let chainElectionId = election.chainElectionId;
     if (!chainElectionId) {
+      // With very few voters, the result itself gives away how people voted
+      // (with one voter, the count IS their vote). The proof can't hide that.
+      const voters = (await repo.listApprovedOffChain(election.id)).length;
+      if (voters < config.minVoters) {
+        throw badRequest(
+          `At least ${config.minVoters} registered voters are needed before publishing, so no one's vote can be worked out from the result. This election has ${voters}.`,
+          "TOO_FEW_VOTERS"
+        );
+      }
       const now = await clock();
       const earliest = new Date(now.getTime() + config.minPublishLeadSeconds * 1000);
       if (election.startTime < earliest) {

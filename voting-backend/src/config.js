@@ -44,6 +44,8 @@ function loadConfig() {
     // Voting must open at least this long after publishing, so setup transactions can land.
     minPublishLeadSeconds: Number(process.env.MIN_PUBLISH_LEAD_SECONDS || 120),
     voterBatchSize: Number(process.env.VOTER_BATCH_SIZE || 100),
+    // Fewest registered voters an election can be published with (see electionService.publish).
+    minVoters: Number(process.env.MIN_VOTERS ?? 3),
     relayRateLimitPerMinute: Number(process.env.RELAY_RATE_LIMIT_PER_MINUTE || 20),
   };
 }

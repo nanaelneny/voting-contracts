@@ -131,7 +131,9 @@ function electionRoutes({ repo, auth, elections, relay, chain, clock }) {
     res.json({ cancelled: true });
   }));
 
-  router.post("/:id/finalize", auth.requireAdmin, asyncHandler(async (req, res) => {
+  // Any logged-in user can record the final result once voting has closed, just as
+  // anyone can call finalize() on the contract. Nobody has to trust the admin to do it.
+  router.post("/:id/finalize", auth.requireAuth, asyncHandler(async (req, res) => {
     const election = await load(req);
     const tx = await relay.finalize(election);
     res.json({ ...tx, results: await elections.results(election) });

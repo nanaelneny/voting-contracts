@@ -1,10 +1,13 @@
 // Vote counts read from the blockchain, as horizontal bars.
 import { useEffect } from "react";
 import { api } from "../lib/api";
-import { ErrorNotice, Spinner, useLoad } from "./ui";
+import { useAuth } from "../lib/auth";
+import { ErrorNotice, Spinner, useAction, useLoad } from "./ui";
 
 export default function Results({ electionId, refreshMs = 0 }) {
   const { data, error, loading, reload } = useLoad(() => api.getResults(electionId), [electionId]);
+  const { user } = useAuth();
+  const finalize = useAction();
 
   useEffect(() => {
     if (!refreshMs) return undefined;
@@ -34,7 +37,20 @@ export default function Results({ electionId, refreshMs = 0 }) {
         <p className="mt-2 text-sm font-semibold text-warn">The top candidates are tied.</p>
       )}
       {data.phase === "ended" && (
-        <p className="mt-2 text-sm text-muted">Waiting for the final result to be recorded.</p>
+        <div className="mt-2 text-sm text-muted">
+          <p>Voting has closed. The final result hasn't been recorded on the blockchain yet.</p>
+          {user && (
+            <button
+              type="button"
+              className="btn-secondary mt-2"
+              disabled={finalize.busy}
+              onClick={() => finalize.run(async () => { await api.finalize(electionId); reload(); })}
+            >
+              {finalize.busy ? "Recording…" : "Record final result"}
+            </button>
+          )}
+          <ErrorNotice error={finalize.error} />
+        </div>
       )}
 
       <ol className="mt-4 space-y-3">

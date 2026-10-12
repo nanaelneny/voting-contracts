@@ -28,6 +28,7 @@ const CONFIG = {
   minPublishLeadSeconds: 120,
   voterBatchSize: 2, // small, so the tests exercise batching
   relayRateLimitPerMinute: 1000,
+  minVoters: 0, // most tests publish small elections; one test checks the minimum
 };
 
 /**
@@ -173,6 +174,18 @@ describe("Backend API", function () {
       const soon = await createElection(ctx, { startIn: 30 });
       const r2 = await request(ctx.app).post(`/api/elections/${soon.id}/publish`).set(as(ctx.adminToken));
       expect(r2.body.code).to.equal("START_TOO_SOON");
+    });
+
+    it("won't publish with too few voters to keep ballots secret", async () => {
+      const e = await createElection(ctx);
+      CONFIG.minVoters = 3;
+      try {
+        const res = await request(ctx.app).post(`/api/elections/${e.id}/publish`).set(as(ctx.adminToken));
+        expect(res.status).to.equal(400);
+        expect(res.body.code).to.equal("TOO_FEW_VOTERS");
+      } finally {
+        CONFIG.minVoters = 0;
+      }
     });
 
     it("deletes a draft", async () => {
@@ -346,7 +359,7 @@ describe("Backend API", function () {
       expect(await ethers.provider.getBalance(ctx.relayerSigner.address)).to.equal(before);
     });
 
-    it("finalizing is refused until voting closes, then records the winner", async () => {
+    it("finalizing is refused until voting closes, then any logged-in user can record the winner", async () => {
       const early = await request(ctx.app).post(`/api/elections/${election.id}/finalize`).set(as(ctx.adminToken));
       expect(early.body.code).to.equal("CANNOT_FINALIZE");
 
@@ -354,7 +367,8 @@ describe("Backend API", function () {
       const late = await request(ctx.app).post(`/api/elections/${election.id}/votes`).send({ proof: await buildBallot(ctx.app, election.id, voters[2].identity, 0) });
       expect(late.body.code).to.equal("VOTING_NOT_OPEN");
 
-      const res = await request(ctx.app).post(`/api/elections/${election.id}/finalize`).set(as(ctx.adminToken));
+      expect((await request(ctx.app).post(`/api/elections/${election.id}/finalize`)).status).to.equal(401);
+      const res = await request(ctx.app).post(`/api/elections/${election.id}/finalize`).set(as(voters[0].token));
       expect(res.status).to.equal(200);
       expect(res.body.results).to.include({ phase: "finalized", tie: false });
       expect(res.body.results.winners).to.deep.equal([election.candidateIds[1]]); // Gloria, by database id

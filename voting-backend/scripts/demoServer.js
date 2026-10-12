@@ -37,6 +37,7 @@ async function main() {
     corsOrigin: "http://localhost:3000",
     minPublishLeadSeconds: Number(process.env.MIN_PUBLISH_LEAD_SECONDS || 60),
     voterBatchSize: 100,
+    minVoters: Number(process.env.MIN_VOTERS ?? 3),
     relayRateLimitPerMinute: 100,
   };
 
