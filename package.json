@@ -13,7 +13,7 @@
     "deploy:sepolia": "hardhat run scripts/deployV2.js --network sepolia",
     "evaluate": "node scripts/evaluate.js",
     "test:contracts": "hardhat test test/VotingV2.test.js",
-    "test:backend": "hardhat test test/backend/repository.test.js test/backend/api.test.js",
+    "test:backend": "hardhat test test/backend/repository.test.js test/backend/api.test.js test/backend/provider.test.js",
     "test:db": "cross-env MSSQL_TEST=1 hardhat test test/backend/repository.test.js"
   },
   "keywords": [],
