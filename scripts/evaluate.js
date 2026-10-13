@@ -105,15 +105,27 @@ async function main() {
   const identities = Array.from({ length: VOTERS }, () => new Identity());
   const start = new Date(Date.now() + START_IN * 1000);
   const end = new Date(start.getTime() + VOTING_SECONDS * 1000);
-  let t = Date.now();
-  const electionId = await chain.createElection({ title: `Evaluation run ${new Date().toISOString()}`, offchainId: 0, startTime: start, endTime: end });
-  rows.push({ step: "createElection", ms: Date.now() - t });
-  t = Date.now();
-  await chain.addCandidates(electionId, CANDIDATES);
-  rows.push({ step: "addCandidates", ms: Date.now() - t });
-  t = Date.now();
-  await chain.addVoters(electionId, identities.map((i) => i.commitment.toString()));
-  rows.push({ step: `addVoters (${VOTERS})`, ms: Date.now() - t });
+  // Times a setup step and records the gas and fees of the transaction(s) it sent.
+  async function timed(step, fn) {
+    const first = receipts.length;
+    const t0 = Date.now();
+    const result = await fn();
+    const row = { step, ms: Date.now() - t0, gasUsed: 0n, l2Fee: 0n, l1Fee: 0n, total: 0n };
+    const sent = receipts.slice(first);
+    for (const r of sent) {
+      const f = await feeOf(provider, r.hash);
+      for (const k of ["gasUsed", "l2Fee", "l1Fee", "total"]) row[k] += f[k];
+      row.gasPrice = f.gasPrice;
+    }
+    row.txHash = sent.map((r) => r.hash).join(" ");
+    rows.push(row);
+    return result;
+  }
+  let t;
+  const electionId = await timed("createElection", () =>
+    chain.createElection({ title: `Evaluation run ${new Date().toISOString()}`, offchainId: 0, startTime: start, endTime: end }));
+  await timed("addCandidates", () => chain.addCandidates(electionId, CANDIDATES));
+  await timed(`addVoters (${VOTERS})`, () => chain.addVoters(electionId, identities.map((i) => i.commitment.toString())));
   const setupCost = await feesOf(receipts.filter((r) => ["createElection", "addCandidates", "addVoters"].includes(r.method)));
   log(`Election #${electionId} set up. Admin paid ${formatEther(setupCost)} ETH`);
 
@@ -217,11 +229,11 @@ ${line("Fee paid by relayer", fee, "ETH", 10)}
 | All votes + finalize, paid by relayer | ${formatEther(relayerSpent)} ETH${money(relayerSpent)} |
 | Paid by voters | 0 ETH |
 ${ETH_PRICE_USD ? `\nUSD figures assume 1 ETH = $${ETH_PRICE_USD}. Test-network ETH has no real value; these show what the same transactions would cost at this gas price.\n` : ""}
-## Setup and finalize times
+## Setup and finalize
 
-| Step | Time (ms) |
-|---|---|
-${rows.filter((r) => r.step !== "vote").map((r) => `| ${r.step} | ${r.ms} |`).join("\n")}
+| Step | Time (ms) | Gas used |
+|---|---|---|
+${rows.filter((r) => r.step !== "vote").map((r) => `| ${r.step} | ${r.ms} | ${r.gasUsed ?? ""} |`).join("\n")}
 `;
   fs.writeFileSync(`${base}.md`, md);
   console.log(`\n${md}`);
