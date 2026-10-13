@@ -35,6 +35,8 @@ async function main() {
     voterBatchSize: 100,
     minVoters: Number(process.env.MIN_VOTERS ?? 3),
     allowedEmailDomains: [],
+    organisationName: process.env.ORGANISATION_NAME || "",
+    memberIdLabel: process.env.MEMBER_ID_LABEL || "Member ID",
     relayRateLimitPerMinute: 100,
   };
 

@@ -67,7 +67,7 @@ export function ElectionForm({ initial, submitLabel, onSubmit, busy, error }) {
     >
       <div>
         <label htmlFor="title" className="label">Title</label>
-        <input id="title" required maxLength={200} className="field" value={form.title} onChange={set("title")} placeholder="SRC General Elections 2026" />
+        <input id="title" required maxLength={200} className="field" value={form.title} onChange={set("title")} placeholder="e.g. Executive elections 2026" />
       </div>
       <div>
         <label htmlFor="description" className="label">Description</label>

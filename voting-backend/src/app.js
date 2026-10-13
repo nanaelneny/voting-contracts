@@ -31,6 +31,14 @@ function createApp({ repo, chain, config, clock = async () => new Date(), chainI
   app.use(express.json({ limit: "100kb" }));
 
   app.get("/api/health", (_req, res) => res.json({ ok: true }));
+  // How this installation is set up for its institution (shown on the website).
+  app.get("/api/settings", (_req, res) =>
+    res.json({
+      organisationName: config.organisationName || "",
+      memberIdLabel: config.memberIdLabel || "Member ID",
+      allowedEmailDomains: config.allowedEmailDomains || [],
+    })
+  );
   // Candidate photos are public, like the candidate list.
   app.get("/api/candidates/:id/photo", async (req, res, next) => {
     try {

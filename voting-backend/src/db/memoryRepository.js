@@ -17,10 +17,10 @@ function createMemoryRepository() {
 
   return {
     // ── Users ──
-    async createUser({ fullName, email, studentId = null, passwordHash, role }) {
+    async createUser({ fullName, email, memberId = null, passwordHash, role }) {
       if (tables.users.some((u) => u.email === email)) throw new DuplicateError("email");
-      if (studentId && tables.users.some((u) => u.studentId === studentId)) throw new DuplicateError("studentId");
-      return insert("users", { fullName, email, studentId, passwordHash, role });
+      if (memberId && tables.users.some((u) => u.memberId === memberId)) throw new DuplicateError("memberId");
+      return insert("users", { fullName, email, memberId, passwordHash, role });
     },
     async findUserByEmail(email) {
       return copy(tables.users.find((u) => u.email === email));
@@ -119,7 +119,7 @@ function createMemoryRepository() {
         .sort((a, b) => a.id - b.id)
         .map((r) => {
           const u = tables.users.find((x) => x.id === r.userId);
-          return { ...r, user: { fullName: u.fullName, email: u.email, studentId: u.studentId } };
+          return { ...r, user: { fullName: u.fullName, email: u.email, memberId: u.memberId } };
         });
     },
     /** Approve/reject registrations that are not on-chain yet. Returns how many changed. */

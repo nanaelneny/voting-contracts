@@ -9,31 +9,30 @@ function authRoutes({ repo, auth, config }) {
   const router = express.Router();
   // e.g. ["st.knust.edu.gh"]. Empty means any email address is accepted.
   const domains = config.allowedEmailDomains || [];
-
-  // What the sign-up form needs to know, so it can show the rules up front.
-  router.get("/signup-rules", (_req, res) => res.json({ allowedEmailDomains: domains }));
+  const idLabel = config.memberIdLabel || "Member ID";
 
   // Public sign-up always creates a voter. Admins are created with `npm run create-admin`.
-  // One person, one account: the student ID is required and must be unique, and the email
-  // can be limited to the school's domain. The admin still approves each registration.
+  // One person, one account: the member ID (student ID, staff number...) is required and
+  // must be unique, and the email can be limited to the institution's domain. The admin
+  // still approves each registration.
   router.post("/register", asyncHandler(async (req, res) => {
     const fullName = v.text(req.body, "fullName", { max: 150 });
     const email = v.email(req.body);
     if (domains.length > 0 && !domains.some((d) => email.endsWith(`@${d}`))) {
-      throw badRequest(`Use your school email address (ending in @${domains.join(" or @")})`, "EMAIL_DOMAIN");
+      throw badRequest(`Use your organisation's email address (ending in @${domains.join(" or @")})`, "EMAIL_DOMAIN");
     }
-    const studentId = v.text(req.body, "studentId", { max: 50 });
+    const memberId = v.text(req.body, "memberId", { max: 50 });
     const password = req.body?.password;
     if (typeof password !== "string" || password.length < 8) {
       throw badRequest("Password must be at least 8 characters", "VALIDATION");
     }
 
     try {
-      const user = await repo.createUser({ fullName, email, studentId, passwordHash: await bcrypt.hash(password, 10), role: "voter" });
+      const user = await repo.createUser({ fullName, email, memberId, passwordHash: await bcrypt.hash(password, 10), role: "voter" });
       res.status(201).json({ token: auth.issueToken(user), user: publicUser(user) });
     } catch (err) {
       if (err instanceof DuplicateError) {
-        throw conflict(err.field === "studentId" ? "That student ID is already registered" : "That email is already registered", "DUPLICATE");
+        throw conflict(err.field === "memberId" ? `That ${idLabel} is already registered` : "That email is already registered", "DUPLICATE");
       }
       throw err;
     }

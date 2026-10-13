@@ -44,7 +44,11 @@ function loadConfig() {
     // Voting must open at least this long after publishing, so setup transactions can land.
     minPublishLeadSeconds: Number(process.env.MIN_PUBLISH_LEAD_SECONDS || 120),
     voterBatchSize: Number(process.env.VOTER_BATCH_SIZE || 100),
-    // Sign-up only accepts emails at these domains, e.g. "st.knust.edu.gh". Empty = any.
+    // The institution running the elections, shown on the website, e.g. "KNUST SRC". Optional.
+    organisationName: (process.env.ORGANISATION_NAME || "").trim(),
+    // What this institution calls its members' ID: "Student ID", "Staff number", "Membership number"...
+    memberIdLabel: (process.env.MEMBER_ID_LABEL || "").trim() || "Member ID",
+    // Sign-up only accepts emails at these domains, e.g. "st.knust.edu.gh" or "company.com". Empty = any.
     allowedEmailDomains: (process.env.ALLOWED_EMAIL_DOMAINS || "")
       .split(",").map((d) => d.trim().toLowerCase().replace(/^@/, "")).filter(Boolean),
     // Fewest registered voters an election can be published with (see electionService.publish).

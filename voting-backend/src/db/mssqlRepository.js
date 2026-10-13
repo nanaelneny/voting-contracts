@@ -6,7 +6,7 @@ const { DuplicateError } = require("../errors");
 // Unique constraint/index name -> field reported in DuplicateError
 const UNIQUE_FIELDS = {
   UQ_Users_email: "email",
-  UQ_Users_student_id: "studentId",
+  UQ_Users_member_id: "memberId",
   UQ_Registrations_commitment: "commitment",
   UQ_Registrations_user: "registration",
 };
@@ -20,7 +20,7 @@ function rethrowDuplicate(err) {
 }
 
 const mapUser = (r) =>
-  r && { id: r.id, fullName: r.full_name, email: r.email, studentId: r.student_id, passwordHash: r.password_hash, role: r.role, createdAt: r.created_at };
+  r && { id: r.id, fullName: r.full_name, email: r.email, memberId: r.member_id, passwordHash: r.password_hash, role: r.role, createdAt: r.created_at };
 
 const mapElection = (r) =>
   r && {
@@ -59,16 +59,16 @@ async function createMssqlRepository(dbConfig) {
     },
 
     // ── Users ──
-    async createUser({ fullName, email, studentId = null, passwordHash, role }) {
+    async createUser({ fullName, email, memberId = null, passwordHash, role }) {
       try {
         const r = await req()
           .input("full_name", sql.NVarChar(150), fullName)
           .input("email", sql.NVarChar(255), email)
-          .input("student_id", sql.NVarChar(50), studentId)
+          .input("member_id", sql.NVarChar(50), memberId)
           .input("password_hash", sql.NVarChar(255), passwordHash)
           .input("role", sql.NVarChar(10), role)
-          .query(`INSERT INTO dbo.Users (full_name, email, student_id, password_hash, role)
-                  OUTPUT INSERTED.* VALUES (@full_name, @email, @student_id, @password_hash, @role)`);
+          .query(`INSERT INTO dbo.Users (full_name, email, member_id, password_hash, role)
+                  OUTPUT INSERTED.* VALUES (@full_name, @email, @member_id, @password_hash, @role)`);
         return one(r, mapUser);
       } catch (err) {
         rethrowDuplicate(err);
@@ -208,13 +208,13 @@ async function createMssqlRepository(dbConfig) {
       const r = await req()
         .input("eid", sql.Int, electionId)
         .input("status", sql.NVarChar(10), status || null)
-        .query(`SELECT r.*, u.full_name, u.email, u.student_id
+        .query(`SELECT r.*, u.full_name, u.email, u.member_id
                   FROM dbo.Registrations r JOIN dbo.Users u ON u.id = r.user_id
                  WHERE r.election_id = @eid AND (@status IS NULL OR r.status = @status)
                  ORDER BY r.id`);
       return r.recordset.map((row) => ({
         ...mapRegistration(row),
-        user: { fullName: row.full_name, email: row.email, studentId: row.student_id },
+        user: { fullName: row.full_name, email: row.email, memberId: row.member_id },
       }));
     },
     async setRegistrationStatus(electionId, ids, status, reviewerId) {

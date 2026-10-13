@@ -9,14 +9,21 @@ CREATE TABLE dbo.Users (
     id            INT IDENTITY(1,1) PRIMARY KEY,
     full_name     NVARCHAR(150)  NOT NULL,
     email         NVARCHAR(255)  NOT NULL CONSTRAINT UQ_Users_email UNIQUE,
-    student_id    NVARCHAR(50)   NULL,
+    member_id     NVARCHAR(50)   NULL,     -- student ID, staff number, membership number...
     password_hash NVARCHAR(255)  NOT NULL,
     role          NVARCHAR(10)   NOT NULL CONSTRAINT CK_Users_role CHECK (role IN ('admin', 'voter')),
     created_at    DATETIME2      NOT NULL CONSTRAINT DF_Users_created_at DEFAULT SYSUTCDATETIME()
 );
 
-IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name = 'UQ_Users_student_id')
-CREATE UNIQUE INDEX UQ_Users_student_id ON dbo.Users (student_id) WHERE student_id IS NOT NULL;
+-- Databases created before the project was generalised beyond schools called this column
+-- student_id. Rename it (and its index) so existing accounts are kept.
+IF COL_LENGTH('dbo.Users', 'student_id') IS NOT NULL AND COL_LENGTH('dbo.Users', 'member_id') IS NULL
+    EXEC sp_rename 'dbo.Users.student_id', 'member_id', 'COLUMN';
+IF EXISTS (SELECT 1 FROM sys.indexes WHERE name = 'UQ_Users_student_id')
+    EXEC sp_rename 'dbo.Users.UQ_Users_student_id', 'UQ_Users_member_id', 'INDEX';
+
+IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name = 'UQ_Users_member_id')
+CREATE UNIQUE INDEX UQ_Users_member_id ON dbo.Users (member_id) WHERE member_id IS NOT NULL;
 
 IF OBJECT_ID('dbo.Elections', 'U') IS NULL
 CREATE TABLE dbo.Elections (

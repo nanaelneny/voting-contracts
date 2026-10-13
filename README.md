@@ -2,10 +2,21 @@
 
 BSc Computer Science final year project (KNUST), building on a diploma-year prototype.
 
-A web voting platform for institutional elections (SRC, departmental, association elections).
-Students cast ballots anonymously using zero-knowledge proofs ([Semaphore](https://semaphore.pse.dev));
+A web voting platform for any institution's elections: student councils, workplaces, unions,
+associations, churches. Voters cast ballots anonymously using zero-knowledge proofs ([Semaphore](https://semaphore.pse.dev));
 the ballots are verified and counted by an Ethereum smart contract. A relayer pays the transaction
 fees, so voters need no crypto wallet. Accounts and election drafts live in SQL Server.
+
+## Setting it up for an institution
+
+In `voting-backend/.env`:
+
+| Setting | Example | What it does |
+|---|---|---|
+| `ORGANISATION_NAME` | `KNUST SRC` | Shown in the website header and on the home page |
+| `MEMBER_ID_LABEL` | `Staff number` | What the sign-up form calls a member's ID (default `Member ID`). Each ID can only be used once. |
+| `ALLOWED_EMAIL_DOMAINS` | `company.com` | Only these email addresses can sign up (empty: any) |
+| `MIN_VOTERS` | `3` | Fewest registered voters an election can be published with |
 
 ## Repository layout
 

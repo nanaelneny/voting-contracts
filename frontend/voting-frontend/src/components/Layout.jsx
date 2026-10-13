@@ -1,5 +1,6 @@
 import { Link, NavLink, Outlet, useNavigate } from "react-router-dom";
 import { useAuth } from "../lib/auth";
+import { useSettings } from "../lib/settings";
 
 function Mark() {
   // A ballot box with a slot: the app's mark.
@@ -20,6 +21,7 @@ const navClass = ({ isActive }) =>
 
 export default function Layout() {
   const { user, signOut } = useAuth();
+  const { organisationName } = useSettings();
   const navigate = useNavigate();
 
   return (
@@ -33,6 +35,9 @@ export default function Layout() {
             <Mark />
             Secret Ballot
           </Link>
+          {organisationName && (
+            <span className="-ml-3 border-l border-rule pl-3 text-sm font-semibold text-muted">{organisationName}</span>
+          )}
           <nav className="flex items-center gap-1" aria-label="Main">
             <NavLink to="/" end className={navClass}>Elections</NavLink>
             {user?.role === "admin" && <NavLink to="/admin" className={navClass}>Manage</NavLink>}

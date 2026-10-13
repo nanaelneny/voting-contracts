@@ -5,6 +5,7 @@ import { formatDateTime, formatWindow } from "../../lib/format";
 import Results from "../../components/Results";
 import Avatar from "../../components/Avatar";
 import { prepareCandidatePhoto } from "../../lib/photo";
+import { useSettings } from "../../lib/settings";
 import { ErrorNotice, Notice, PageLoading, StatusTag, useAction, useLoad } from "../../components/ui";
 import { ElectionForm } from "./AdminPages";
 
@@ -72,7 +73,7 @@ function SetupChecklist({ candidates, registrations }) {
   const approved = registrations.filter((r) => r.status === "approved").length;
   const steps = [
     { done: candidates.length > 0, text: "Add the candidates" },
-    { done: approved > 0, text: "Approve students' registrations" },
+    { done: approved > 0, text: "Approve voters' registrations" },
     { done: false, text: "Publish the election to the blockchain, at least a few minutes before voting opens" },
   ];
   return (
@@ -244,6 +245,7 @@ const TABS = [
 ];
 
 function Registrations({ election, state }) {
+  const { memberIdLabel } = useSettings();
   const [tab, setTab] = useState("pending");
   const [selected, setSelected] = useState(new Set());
   const { busy, error, run } = useAction();
@@ -307,8 +309,8 @@ function Registrations({ election, state }) {
                     />
                   )}
                 </th>
-                <th className="py-2 pr-3 font-semibold">Student</th>
-                <th className="py-2 pr-3 font-semibold">Student ID</th>
+                <th className="py-2 pr-3 font-semibold">Name</th>
+                <th className="py-2 pr-3 font-semibold">{memberIdLabel}</th>
                 <th className="py-2 pr-3 font-semibold">Registered</th>
                 <th className="py-2 font-semibold">Voter list</th>
               </tr>
@@ -331,7 +333,7 @@ function Registrations({ election, state }) {
                     <span className="block font-semibold">{r.user.fullName}</span>
                     <span className="block text-xs text-muted">{r.user.email}</span>
                   </td>
-                  <td className="py-2.5 pr-3">{r.user.studentId || <span className="text-muted">–</span>}</td>
+                  <td className="py-2.5 pr-3">{r.user.memberId || <span className="text-muted">–</span>}</td>
                   <td className="py-2.5 pr-3 text-muted">{formatDateTime(r.createdAt)}</td>
                   <td className="py-2.5">{r.onChain ? <span className="font-semibold text-good">On blockchain</span> : <span className="text-muted">Not yet</span>}</td>
                 </tr>
@@ -410,7 +412,7 @@ function ChainActions({ election, candidates, registrations, finalized, onDone }
           <h3>Add approved voters</h3>
           <p className="mt-1 text-sm text-muted">
             {approvedWaiting
-              ? `${approvedWaiting} approved student${approvedWaiting === 1 ? " isn't" : "s aren't"} on the voter list yet.`
+              ? `${approvedWaiting} approved voter${approvedWaiting === 1 ? " isn't" : "s aren't"} on the voter list yet.`
               : "Everyone approved is on the voter list."}
           </p>
           <button

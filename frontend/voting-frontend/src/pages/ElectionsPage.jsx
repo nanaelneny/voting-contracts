@@ -1,6 +1,7 @@
 import { Link } from "react-router-dom";
 import { api } from "../lib/api";
 import { useAuth } from "../lib/auth";
+import { useSettings } from "../lib/settings";
 import { formatWindow, relative } from "../lib/format";
 import Thumbprint from "../components/Thumbprint";
 import { ErrorNotice, PageLoading, StatusTag, useLoad } from "../components/ui";
@@ -75,14 +76,15 @@ function ElectionGroups({ elections }) {
 
 /** For visitors who aren't logged in: what this is and how it works. */
 function Intro() {
+  const { organisationName } = useSettings();
   return (
     <section aria-labelledby="intro" className="border-b border-rule pb-14">
       <div className="grid items-center gap-10 md:grid-cols-[minmax(0,1fr)_20rem]">
         <div>
           <h1 id="intro" className="max-w-xl text-4xl sm:text-5xl">Vote in secret. Check that it was counted.</h1>
           <p className="mt-5 max-w-lg text-lg text-muted">
-            Student elections recorded on a public blockchain. Your ballot is proved valid without revealing who cast it,
-            so not even the election officers can link a vote to a student.
+            {organisationName ? `${organisationName} elections` : "Elections for your organisation"}, recorded on a public blockchain. Your ballot is proved valid without
+            revealing who cast it, so not even the election officers can link a vote to a voter.
           </p>
           <div className="mt-7 flex flex-wrap gap-3">
             <Link to="/register" className="btn-primary px-5 py-3 text-base">Create an account</Link>
@@ -114,7 +116,7 @@ function SampleBallot() {
   const rows = ["Ama Owusu", "Kofi Mensah", "Esi Boateng"];
   return (
     <div className="mx-auto w-full max-w-xs rotate-1 border-2 border-ink bg-sheet shadow-[6px_6px_0_var(--color-rule)]" aria-hidden="true">
-      <div className="border-b-2 border-ink px-4 py-2.5 font-display text-sm font-bold [font-stretch:112%]">SRC President</div>
+      <div className="border-b-2 border-ink px-4 py-2.5 font-display text-sm font-bold [font-stretch:112%]">Chairperson</div>
       {rows.map((name, i) => (
         <div key={name} className={`flex items-stretch ${i > 0 ? "border-t-2 border-ink" : ""}`}>
           <span className="grid w-7 place-items-center border-r-2 border-ink font-display text-xs font-bold">{i + 1}</span>

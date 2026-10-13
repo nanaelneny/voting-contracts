@@ -2,7 +2,8 @@ import { useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { api } from "../lib/api";
 import { useAuth } from "../lib/auth";
-import { ErrorNotice, useAction, useLoad } from "../components/ui";
+import { useSettings } from "../lib/settings";
+import { ErrorNotice, useAction } from "../components/ui";
 
 function AuthShell({ title, intro, children, footer }) {
   return (
@@ -53,11 +54,10 @@ export function LoginPage() {
 export function RegisterPage() {
   const { signIn } = useAuth();
   const navigate = useNavigate();
-  const [form, setForm] = useState({ fullName: "", studentId: "", email: "", password: "" });
+  const [form, setForm] = useState({ fullName: "", memberId: "", email: "", password: "" });
   const { busy, error, run } = useAction();
   const set = (k) => (e) => setForm({ ...form, [k]: e.target.value });
-  const { data: rules } = useLoad(() => api.signupRules(), []);
-  const domains = rules?.allowedEmailDomains || [];
+  const { memberIdLabel, allowedEmailDomains: domains } = useSettings();
 
   const submit = (e) => {
     e.preventDefault();
@@ -78,15 +78,15 @@ export function RegisterPage() {
           <input id="fullName" autoComplete="name" required className="field" value={form.fullName} onChange={set("fullName")} />
         </div>
         <div>
-          <label htmlFor="studentId" className="label">Student ID</label>
-          <input id="studentId" required className="field" value={form.studentId} onChange={set("studentId")} />
+          <label htmlFor="memberId" className="label">{memberIdLabel}</label>
+          <input id="memberId" required className="field" value={form.memberId} onChange={set("memberId")} />
         </div>
         <div>
           <label htmlFor="email" className="label">Email</label>
           <input id="email" type="email" autoComplete="email" required className="field" value={form.email} onChange={set("email")}
             placeholder={domains.length ? `you@${domains[0]}` : undefined} />
           {domains.length > 0 && (
-            <p className="mt-1 text-xs text-muted">Use your school email (ending in @{domains.join(" or @")}).</p>
+            <p className="mt-1 text-xs text-muted">Use your organisation email (ending in @{domains.join(" or @")}).</p>
           )}
         </div>
         <div>
