@@ -11,6 +11,8 @@
     "deploy:local": "hardhat run scripts/deployV2.js --network localhost",
     "deploy:base-sepolia": "hardhat run scripts/deployV2.js --network baseSepolia",
     "deploy:sepolia": "hardhat run scripts/deployV2.js --network sepolia",
+    "verify:base-sepolia": "hardhat run scripts/verify.js --network baseSepolia",
+    "verify:sepolia": "hardhat run scripts/verify.js --network sepolia",
     "evaluate": "node scripts/evaluate.js",
     "compare": "node scripts/compare.js",
     "test:contracts": "hardhat test test/VotingV2.test.js",

@@ -24,6 +24,10 @@ module.exports = {
     baseSepolia: publicNet(BASE_SEPOLIA_RPC_URL), // Base's test network (an Ethereum L2)
     sepolia: publicNet(SEPOLIA_RPC_URL), // Ethereum's own test network
   },
+  // For publishing the contract's source on basescan / etherscan (npm run verify:...).
+  // One free Etherscan API key covers both.
+  etherscan: { apiKey: process.env.ETHERSCAN_API_KEY || "" },
+  sourcify: { enabled: false },
   gasReporter: {
     enabled: process.env.REPORT_GAS === "true",
     currency: "USD",
