@@ -86,6 +86,8 @@ export const api = {
   deleteElection: (id) => request("DELETE", `/elections/${id}`),
   addCandidate: (id, body) => request("POST", `/elections/${id}/candidates`, { body }),
   removeCandidate: (id, candidateId) => request("DELETE", `/elections/${id}/candidates/${candidateId}`),
+  setCandidatePhoto: (id, candidateId, image) => request("PUT", `/elections/${id}/candidates/${candidateId}/photo`, { body: { image } }),
+  removeCandidatePhoto: (id, candidateId) => request("DELETE", `/elections/${id}/candidates/${candidateId}/photo`),
   listRegistrations: (id, status) => request("GET", `/elections/${id}/registrations${status ? `?status=${status}` : ""}`),
   reviewRegistrations: (id, ids, status) => request("POST", `/elections/${id}/registrations/review`, { body: { ids, status } }),
   publish: (id) => request("POST", `/elections/${id}/publish`),

@@ -1,8 +1,10 @@
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { api } from "../../lib/api";
 import { formatDateTime, formatWindow } from "../../lib/format";
 import Results from "../../components/Results";
+import Avatar from "../../components/Avatar";
+import { prepareCandidatePhoto } from "../../lib/photo";
 import { ErrorNotice, Notice, PageLoading, StatusTag, useAction, useLoad } from "../../components/ui";
 import { ElectionForm } from "./AdminPages";
 
@@ -139,11 +141,15 @@ function Candidates({ election, candidates, onChange }) {
       ) : (
         <ul className="mt-3 divide-y divide-rule border-y border-rule">
           {candidates.map((c) => (
-            <li key={c.id} className="flex items-center gap-3 py-3">
+            <li key={c.id} className="flex flex-wrap items-center gap-x-3 gap-y-2 py-3">
+              <Avatar name={c.name} photoUrl={c.photoUrl} size="lg" />
               <span className="min-w-0 flex-1">
                 <span className="block font-semibold">{c.name}</span>
                 {c.party && <span className="block text-sm text-muted">{c.party}</span>}
               </span>
+              {BEFORE_VOTING.includes(election.status) && (
+                <PhotoControls election={election} candidate={c} onChange={onChange} />
+              )}
               {editable && (
                 <button
                   type="button"
@@ -184,6 +190,50 @@ function Candidates({ election, candidates, onChange }) {
       )}
       <ErrorNotice error={error} className="mt-3" />
     </section>
+  );
+}
+
+/** Add, change or remove a candidate's photo. Allowed until voting opens. */
+function PhotoControls({ election, candidate, onChange }) {
+  const input = useRef(null);
+  const { busy, error, run } = useAction();
+  return (
+    <span className="flex flex-col items-end gap-1">
+      <span className="flex gap-3 text-sm">
+        <button type="button" className="font-semibold text-violet hover:underline disabled:opacity-50" disabled={busy} onClick={() => input.current?.click()}>
+          {busy ? "Uploading…" : candidate.photoUrl ? "Change photo" : "Add photo"}
+          <span className="sr-only"> for {candidate.name}</span>
+        </button>
+        {candidate.photoUrl && (
+          <button
+            type="button"
+            className="font-semibold text-muted hover:text-bad hover:underline disabled:opacity-50"
+            disabled={busy}
+            onClick={() => run(async () => { await api.removeCandidatePhoto(election.id, candidate.id); await onChange(); })}
+          >
+            Remove photo<span className="sr-only"> for {candidate.name}</span>
+          </button>
+        )}
+      </span>
+      <input
+        ref={input}
+        type="file"
+        accept="image/jpeg,image/png,image/webp"
+        className="sr-only"
+        tabIndex={-1}
+        aria-hidden="true"
+        onChange={(e) => {
+          const file = e.target.files?.[0];
+          e.target.value = "";
+          if (!file) return;
+          run(async () => {
+            await api.setCandidatePhoto(election.id, candidate.id, await prepareCandidatePhoto(file));
+            await onChange();
+          });
+        }}
+      />
+      <ErrorNotice error={error} className="max-w-xs" />
+    </span>
   );
 }
 

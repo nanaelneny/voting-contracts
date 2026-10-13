@@ -5,7 +5,9 @@ import { useAuth } from "../lib/auth";
 import { formatWindow, relative } from "../lib/format";
 import { backupFile, createIdentity, importBackup, loadIdentity, loadReceipt, saveReceipt } from "../lib/identity";
 import Results from "../components/Results";
-import { ErrorNotice, Notice, PageLoading, Spinner, StatusTag, useAction, useLoad } from "../components/ui";
+import Avatar from "../components/Avatar";
+import Thumbprint from "../components/Thumbprint";
+import { ErrorNotice, Notice, PageLoading, PhaseTrack, Spinner, StatusTag, useAction, useLoad } from "../components/ui";
 
 const PUBLISHED = ["upcoming", "open", "closed"];
 
@@ -36,6 +38,9 @@ export default function ElectionPage() {
         <p className="mt-3 text-sm">
           <span className="font-semibold">Voting:</span> {formatWindow(election.startTime, election.endTime)}
         </p>
+        <div className="mt-6 max-w-xl">
+          <PhaseTrack election={election} />
+        </div>
         {user?.role === "admin" && (
           <Link to={`/admin/elections/${electionId}`} className="btn-link mt-3 inline-block text-sm">Manage this election</Link>
         )}
@@ -84,11 +89,14 @@ function CandidateList({ candidates }) {
       {candidates.length === 0 ? (
         <p className="mt-2 text-sm text-muted">Candidates haven't been announced yet.</p>
       ) : (
-        <ul className="mt-3 space-y-2">
+        <ul className="mt-4 space-y-3">
           {candidates.map((c) => (
-            <li key={c.id}>
-              <span className="font-semibold">{c.name}</span>
-              {c.party && <span className="block text-sm text-muted">{c.party}</span>}
+            <li key={c.id} className="flex items-center gap-3">
+              <Avatar name={c.name} photoUrl={c.photoUrl} size="lg" />
+              <span className="min-w-0">
+                <span className="block font-display font-bold leading-tight [font-stretch:108%]">{c.name}</span>
+                {c.party && <span className="block text-sm text-muted">{c.party}</span>}
+              </span>
             </li>
           ))}
         </ul>
@@ -332,12 +340,15 @@ function BallotPaper({ election, candidates, identity, onCast }) {
 
           <fieldset disabled={working || confirming} className="px-5 py-4">
             <legend className="sr-only">Choose one candidate</legend>
-            <p className="mb-3 text-sm font-semibold">Mark one candidate.</p>
-            <div className="divide-y divide-rule border-y border-rule">
-              {candidates.map((c) => {
+            <p className="mb-3 text-sm font-semibold">Thumbprint the box beside one candidate.</p>
+            <div className="border-2 border-ink">
+              {candidates.map((c, i) => {
                 const selected = choice === c.chainIndex;
                 return (
-                  <label key={c.id} className={`flex cursor-pointer items-center gap-4 py-3.5 ${selected ? "bg-violet-wash/60" : ""}`}>
+                  <label
+                    key={c.id}
+                    className={`flex cursor-pointer items-stretch ${i > 0 ? "border-t-2 border-ink" : ""} ${selected ? "bg-violet-wash/50" : "hover:bg-paper"}`}
+                  >
                     <input
                       type="radio"
                       name="candidate"
@@ -346,19 +357,21 @@ function BallotPaper({ election, candidates, identity, onCast }) {
                       onChange={() => setChoice(c.chainIndex)}
                       className="peer sr-only"
                     />
-                    <span className="min-w-0 flex-1 pl-1">
-                      <span className="block font-semibold">{c.name}</span>
-                      {c.party && <span className="block text-sm text-muted">{c.party}</span>}
+                    <span className="grid w-9 shrink-0 place-items-center border-r-2 border-ink font-display text-sm font-bold" aria-hidden="true">
+                      {i + 1}
+                    </span>
+                    <span className="flex min-w-0 flex-1 items-center gap-3 px-3 py-3">
+                      <Avatar name={c.name} photoUrl={c.photoUrl} size="lg" />
+                      <span className="min-w-0">
+                        <span className="block font-display text-lg font-bold leading-tight [font-stretch:108%]">{c.name}</span>
+                        {c.party && <span className="block text-sm text-muted">{c.party}</span>}
+                      </span>
                     </span>
                     <span
-                      className="mr-1 grid size-9 shrink-0 place-items-center border-2 border-ink bg-sheet peer-focus-visible:outline peer-focus-visible:outline-3 peer-focus-visible:outline-offset-2 peer-focus-visible:outline-violet"
+                      className="grid w-16 shrink-0 place-items-center border-l-2 border-ink bg-sheet text-violet peer-focus-visible:outline peer-focus-visible:outline-3 peer-focus-visible:-outline-offset-4 peer-focus-visible:outline-violet sm:w-24"
                       aria-hidden="true"
                     >
-                      {selected && (
-                        <svg viewBox="0 0 24 24" className="size-7">
-                          <path d="M4 13l5 5L20 6" fill="none" stroke="var(--color-violet)" strokeWidth="3.5" strokeLinecap="round" strokeLinejoin="round" />
-                        </svg>
-                      )}
+                      {selected && <Thumbprint className="animate-press h-14 w-12 -rotate-6" />}
                     </span>
                   </label>
                 );

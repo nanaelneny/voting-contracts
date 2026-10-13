@@ -1,5 +1,6 @@
 // Small shared pieces of UI.
 import { useCallback, useEffect, useState } from "react";
+import { relative } from "../lib/format";
 
 /** Loads data with `load()` and re-runs it whenever `deps` change. */
 export function useLoad(load, deps) {
@@ -96,4 +97,61 @@ export function useAction() {
     }
   }, []);
   return { busy, error, setError, run };
+}
+
+/**
+ * Where an election is in its life: registration, then voting, then the result.
+ * A real sequence, so it's shown as numbered steps with the current one marked.
+ */
+export function PhaseTrack({ election }) {
+  if (election.status === "cancelled") return null;
+  const { status, startTime, endTime } = election;
+  const current = { draft: 0, publishing: 0, upcoming: 1, open: 1, closed: 2 }[status] ?? 0;
+  const steps = [
+    {
+      label: "Registration",
+      detail: current === 0 ? "Open now" : "Closed",
+    },
+    {
+      label: "Voting",
+      detail: status === "open" ? `Closes ${relative(endTime)}` : status === "closed" ? "Closed" : `Opens ${relative(startTime)}`,
+    },
+    { label: "Result", detail: status === "closed" ? "Votes counted" : "When voting closes" },
+  ];
+  // "upcoming" sits between steps: registration is over but voting hasn't started.
+  const stateOf = (i) => {
+    if (i < current) return "done";
+    if (i === current) return status === "upcoming" ? "next" : status === "closed" ? "done" : "now";
+    return "later";
+  };
+
+  return (
+    <ol className="grid grid-cols-3 gap-2" aria-label="Election progress">
+      {steps.map((s, i) => {
+        const state = stateOf(i);
+        return (
+          <li key={s.label} className="relative" aria-current={state === "now" ? "step" : undefined}>
+            <div className="flex items-center">
+              <span
+                className={`grid size-7 shrink-0 place-items-center rounded-full border-2 font-display text-xs font-bold ${
+                  state === "done" ? "border-ink bg-ink text-white"
+                  : state === "now" ? "border-violet bg-violet text-white"
+                  : state === "next" ? "border-violet bg-sheet text-violet"
+                  : "border-rule bg-sheet text-muted"
+                }`}
+              >
+                {i + 1}
+              </span>
+              {i < steps.length - 1 && <span className={`mx-2 h-0.5 flex-1 ${i < current ? "bg-ink" : "bg-rule"}`} aria-hidden="true" />}
+            </div>
+            <p className={`mt-2 text-sm font-semibold ${state === "later" ? "text-muted" : ""}`}>
+              {s.label}
+              {state === "now" && <span className="sr-only"> (current step)</span>}
+            </p>
+            <p className="text-xs text-muted">{s.detail}</p>
+          </li>
+        );
+      })}
+    </ol>
+  );
 }
