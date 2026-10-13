@@ -43,6 +43,16 @@ CREATE TABLE dbo.Candidates (
     created_at  DATETIME2      NOT NULL CONSTRAINT DF_Candidates_created_at DEFAULT SYSUTCDATETIME()
 );
 
+-- Candidate photos, kept apart from Candidates so listing candidates doesn't load images.
+-- Photos are only shown on the website; the blockchain stores candidate names only.
+IF OBJECT_ID('dbo.CandidatePhotos', 'U') IS NULL
+CREATE TABLE dbo.CandidatePhotos (
+    candidate_id INT            NOT NULL PRIMARY KEY CONSTRAINT FK_CandidatePhotos_Candidates REFERENCES dbo.Candidates(id) ON DELETE CASCADE,
+    content_type VARCHAR(20)    NOT NULL,   -- image/jpeg, image/png or image/webp
+    data         VARBINARY(MAX) NOT NULL,
+    updated_at   DATETIME2      NOT NULL CONSTRAINT DF_CandidatePhotos_updated_at DEFAULT SYSUTCDATETIME()
+);
+
 -- A voter's request to take part in an election. The commitment is a public value
 -- derived from a secret that only exists in the voter's browser.
 IF OBJECT_ID('dbo.Registrations', 'U') IS NULL

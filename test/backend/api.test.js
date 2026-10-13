@@ -404,6 +404,64 @@ describe("Backend API", function () {
     });
   });
 
+  describe("Candidate photos", function () {
+    let ctx, election;
+    // Smallest valid PNG (1×1 pixel)
+    const PNG = Buffer.from("89504e470d0a1a0a0000000d4948445200000001000000010806000000" + "1f15c4890000000d49444154789c6360000002000154a24f5d0000000049454e44ae426082", "hex");
+    const dataUrl = (type, buf) => `data:${type};base64,${buf.toString("base64")}`;
+    before(async () => {
+      ctx = await setup();
+      election = await createElection(ctx);
+    });
+
+    it("the admin uploads a photo; anyone can see it", async () => {
+      const [cid] = election.candidateIds;
+      const up = await request(ctx.app).put(`/api/elections/${election.id}/candidates/${cid}/photo`).set(as(ctx.adminToken))
+        .send({ image: dataUrl("image/png", PNG) });
+      expect(up.status).to.equal(200);
+      expect(up.body.photoUrl).to.match(new RegExp(`^/api/candidates/${cid}/photo\\?v=\\d+$`));
+
+      const { body } = await request(ctx.app).get(`/api/elections/${election.id}`);
+      expect(body.candidates[0].photoUrl).to.equal(up.body.photoUrl);
+      expect(body.candidates[1].photoUrl).to.equal(null);
+
+      const img = await request(ctx.app).get(up.body.photoUrl);
+      expect(img.status).to.equal(200);
+      expect(img.headers["content-type"]).to.equal("image/png");
+      expect(Buffer.compare(img.body, PNG)).to.equal(0);
+
+      const results = await request(ctx.app).get(`/api/elections/${election.id}/results`);
+      expect(results.body.candidates[0].photoUrl).to.equal(up.body.photoUrl);
+    });
+
+    it("refuses files that aren't images, oversized photos and non-admins", async () => {
+      const [, cid] = election.candidateIds;
+      const url = `/api/elections/${election.id}/candidates/${cid}/photo`;
+      const fake = await request(ctx.app).put(url).set(as(ctx.adminToken)).send({ image: dataUrl("image/png", Buffer.from("<script>alert(1)</script>")) });
+      expect(fake.body.code).to.equal("BAD_PHOTO");
+      const big = Buffer.concat([PNG, Buffer.alloc(600 * 1024)]);
+      expect((await request(ctx.app).put(url).set(as(ctx.adminToken)).send({ image: dataUrl("image/png", big) })).status).to.be.oneOf([400, 413]);
+      const voter = await registerVoter(ctx.app, 1);
+      expect((await request(ctx.app).put(url).set(as(voter)).send({ image: dataUrl("image/png", PNG) })).status).to.equal(403);
+    });
+
+    it("photos can be removed, and are locked once voting opens", async () => {
+      const [cid, cid2] = election.candidateIds;
+      await request(ctx.app).delete(`/api/elections/${election.id}/candidates/${cid}/photo`).set(as(ctx.adminToken)).expect(204);
+      expect((await request(ctx.app).get(`/api/elections/${election.id}`)).body.candidates[0].photoUrl).to.equal(null);
+
+      await request(ctx.app).post(`/api/elections/${election.id}/publish`).set(as(ctx.adminToken)).expect(200);
+      // Still allowed after publishing, before voting opens
+      await request(ctx.app).put(`/api/elections/${election.id}/candidates/${cid2}/photo`).set(as(ctx.adminToken))
+        .send({ image: dataUrl("image/png", PNG) }).expect(200);
+
+      await time.increaseTo(election.start);
+      const locked = await request(ctx.app).put(`/api/elections/${election.id}/candidates/${cid}/photo`).set(as(ctx.adminToken))
+        .send({ image: dataUrl("image/png", PNG) });
+      expect(locked.body.code).to.equal("PHOTO_LOCKED");
+    });
+  });
+
   describe("Cancelling and recovery", function () {
     let ctx;
     before(async () => (ctx = await setup()));

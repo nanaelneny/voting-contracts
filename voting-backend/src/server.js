@@ -26,6 +26,7 @@ async function main() {
   });
 
   const repo = await createMssqlRepository(config.db);
+  await repo.ensureSchema(); // adds any tables introduced by updates (e.g. candidate photos)
   await warnIfChainWasReset(repo, chain);
   const chainId = Number(network.chainId);
   const explorerUrl = config.chain.explorerUrl || EXPLORERS[chainId] || null;

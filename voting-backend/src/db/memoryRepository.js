@@ -12,6 +12,8 @@ function createMemoryRepository() {
     return { ...full };
   };
   const copy = (row) => (row ? { ...row } : null);
+  const photos = new Map(); // candidateId -> { contentType, data, updatedAt }
+  const withPhoto = (c) => (c ? { ...c, photoUpdatedAt: photos.get(c.id)?.updatedAt || null } : null);
 
   return {
     // ── Users ──
@@ -47,6 +49,7 @@ function createMemoryRepository() {
     },
     async deleteElection(id) {
       tables.elections = tables.elections.filter((e) => e.id !== id);
+      for (const c of tables.candidates) if (c.electionId === id) photos.delete(c.id);
       tables.candidates = tables.candidates.filter((c) => c.electionId !== id);
       tables.registrations = tables.registrations.filter((r) => r.electionId !== id);
     },
@@ -65,13 +68,24 @@ function createMemoryRepository() {
       return insert("candidates", { electionId, name, party, chainIndex: null });
     },
     async listCandidates(electionId) {
-      return tables.candidates.filter((c) => c.electionId === electionId).sort((a, b) => a.id - b.id).map(copy);
+      return tables.candidates.filter((c) => c.electionId === electionId).sort((a, b) => a.id - b.id).map(withPhoto);
     },
     async getCandidate(id) {
-      return copy(tables.candidates.find((c) => c.id === id));
+      return withPhoto(tables.candidates.find((c) => c.id === id));
     },
     async deleteCandidate(id) {
       tables.candidates = tables.candidates.filter((c) => c.id !== id);
+      photos.delete(id);
+    },
+    async setCandidatePhoto(id, { contentType, data }) {
+      photos.set(id, { contentType, data: Buffer.from(data), updatedAt: new Date() });
+    },
+    async getCandidatePhoto(id) {
+      const p = photos.get(id);
+      return p ? { ...p } : null;
+    },
+    async deleteCandidatePhoto(id) {
+      photos.delete(id);
     },
     async setCandidateChainIndex(id, chainIndex) {
       tables.candidates.find((c) => c.id === id).chainIndex = chainIndex;

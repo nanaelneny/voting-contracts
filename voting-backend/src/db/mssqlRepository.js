@@ -30,7 +30,14 @@ const mapElection = (r) =>
   };
 
 const mapCandidate = (r) =>
-  r && { id: r.id, electionId: r.election_id, name: r.name, party: r.party, chainIndex: r.chain_index, createdAt: r.created_at };
+  r && {
+    id: r.id, electionId: r.election_id, name: r.name, party: r.party, chainIndex: r.chain_index, createdAt: r.created_at,
+    photoUpdatedAt: r.photo_updated_at || null,
+  };
+
+// Candidates with the time their photo was last changed (null if they have none).
+const CANDIDATES_WITH_PHOTO = `SELECT c.*, p.updated_at AS photo_updated_at
+  FROM dbo.Candidates c LEFT JOIN dbo.CandidatePhotos p ON p.candidate_id = c.id`;
 
 const mapRegistration = (r) =>
   r && {
@@ -44,6 +51,13 @@ async function createMssqlRepository(dbConfig) {
   const one = (result, map) => map(result.recordset[0]) || null;
 
   return {
+    /** Creates any missing tables (e.g. new ones added in an update). Safe to run every start. */
+    async ensureSchema() {
+      const fs = require("fs");
+      const path = require("path");
+      await pool.request().batch(fs.readFileSync(path.join(__dirname, "schema.sql"), "utf8"));
+    },
+
     // ── Users ──
     async createUser({ fullName, email, studentId = null, passwordHash, role }) {
       try {
@@ -131,12 +145,26 @@ async function createMssqlRepository(dbConfig) {
       return one(r, mapCandidate);
     },
     async listCandidates(electionId) {
-      const r = await req().input("eid", sql.Int, electionId).query("SELECT * FROM dbo.Candidates WHERE election_id = @eid ORDER BY id");
+      const r = await req().input("eid", sql.Int, electionId).query(`${CANDIDATES_WITH_PHOTO} WHERE c.election_id = @eid ORDER BY c.id`);
       return r.recordset.map(mapCandidate);
     },
     async getCandidate(id) {
-      const r = await req().input("id", sql.Int, id).query("SELECT * FROM dbo.Candidates WHERE id = @id");
+      const r = await req().input("id", sql.Int, id).query(`${CANDIDATES_WITH_PHOTO} WHERE c.id = @id`);
       return one(r, mapCandidate);
+    },
+    async setCandidatePhoto(id, { contentType, data }) {
+      await req().input("id", sql.Int, id).input("type", sql.VarChar(20), contentType).input("data", sql.VarBinary(sql.MAX), data)
+        .query(`MERGE dbo.CandidatePhotos AS t USING (SELECT @id AS candidate_id) AS s ON t.candidate_id = s.candidate_id
+                WHEN MATCHED THEN UPDATE SET content_type = @type, data = @data, updated_at = SYSUTCDATETIME()
+                WHEN NOT MATCHED THEN INSERT (candidate_id, content_type, data) VALUES (@id, @type, @data);`);
+    },
+    async getCandidatePhoto(id) {
+      const r = await req().input("id", sql.Int, id).query("SELECT * FROM dbo.CandidatePhotos WHERE candidate_id = @id");
+      const row = r.recordset[0];
+      return row ? { contentType: row.content_type, data: row.data, updatedAt: row.updated_at } : null;
+    },
+    async deleteCandidatePhoto(id) {
+      await req().input("id", sql.Int, id).query("DELETE FROM dbo.CandidatePhotos WHERE candidate_id = @id");
     },
     async deleteCandidate(id) {
       await req().input("id", sql.Int, id).query("DELETE FROM dbo.Candidates WHERE id = @id");

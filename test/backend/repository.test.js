@@ -86,6 +86,31 @@ function repositorySuite(name, makeRepo, resetRepo) {
       expect((await repo.listCandidates(e.id)).map((c) => c.name)).to.deep.equal(["Gloria"]);
     });
 
+    it("stores, replaces and removes candidate photos", async () => {
+      const admin = await user(1, { role: "admin" });
+      const e = await election(admin.id);
+      const c = await repo.addCandidate(e.id, { name: "Ama" });
+      expect((await repo.getCandidate(c.id)).photoUpdatedAt).to.equal(null);
+      expect(await repo.getCandidatePhoto(c.id)).to.equal(null);
+
+      await repo.setCandidatePhoto(c.id, { contentType: "image/png", data: Buffer.from([1, 2, 3]) });
+      const p1 = await repo.getCandidatePhoto(c.id);
+      expect(p1.contentType).to.equal("image/png");
+      expect([...p1.data]).to.deep.equal([1, 2, 3]);
+      expect((await repo.listCandidates(e.id))[0].photoUpdatedAt).to.be.instanceOf(Date);
+
+      await repo.setCandidatePhoto(c.id, { contentType: "image/jpeg", data: Buffer.from([4, 5]) });
+      expect((await repo.getCandidatePhoto(c.id)).contentType).to.equal("image/jpeg");
+
+      await repo.deleteCandidatePhoto(c.id);
+      expect(await repo.getCandidatePhoto(c.id)).to.equal(null);
+
+      // Deleting the candidate also removes its photo
+      await repo.setCandidatePhoto(c.id, { contentType: "image/png", data: Buffer.from([1]) });
+      await repo.deleteCandidate(c.id);
+      expect(await repo.getCandidatePhoto(c.id)).to.equal(null);
+    });
+
     it("saves registrations, replaces a commitment, and rejects duplicate commitments", async () => {
       const admin = await user(1, { role: "admin" });
       const [v1, v2] = [await user(2), await user(3)];

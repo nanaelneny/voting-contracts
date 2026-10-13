@@ -1,5 +1,6 @@
 // Election logic that spans the database and the blockchain.
 const { badRequest, conflict } = require("../errors");
+const { photoUrl } = require("./photos");
 
 /** Status shown in lists, from the database and the clock (no chain call). */
 function electionStatus(election, now) {
@@ -137,15 +138,16 @@ function createElectionService({ repo, chain, clock, config }) {
       return {
         electionId: election.id, phase: election.cancelledAt ? "cancelled" : "draft", totalVotes: 0, voterCount: 0,
         turnout: null, winners: null, tie: false,
-        candidates: candidates.map((c) => ({ id: c.id, name: c.name, party: c.party, votes: 0 })),
+        candidates: candidates.map((c) => ({ id: c.id, name: c.name, party: c.party, photoUrl: photoUrl(c), votes: 0 })),
       };
     }
 
     const [state, onChain] = await Promise.all([chainState(election.chainElectionId), chain.getCandidates(election.chainElectionId)]);
     const byIndex = new Map(candidates.map((c) => [c.chainIndex, c]));
-    const rows = onChain.map((c, i) => ({
-      id: byIndex.get(i)?.id ?? null, name: c.name, party: byIndex.get(i)?.party ?? null, votes: c.voteCount,
-    }));
+    const rows = onChain.map((c, i) => {
+      const local = byIndex.get(i);
+      return { id: local?.id ?? null, name: c.name, party: local?.party ?? null, photoUrl: local ? photoUrl(local) : null, votes: c.voteCount };
+    });
 
     let winners = null;
     if (state.phase === "finalized") {
