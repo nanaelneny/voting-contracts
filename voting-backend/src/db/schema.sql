@@ -16,11 +16,20 @@ CREATE TABLE dbo.Users (
 );
 
 -- Databases created before the project was generalised beyond schools called this column
--- student_id. Rename it (and its index) so existing accounts are kept.
+-- student_id. Rename it so existing accounts are kept. SQL Server won't rename a column
+-- while an index uses it, so: remove the unique index, rename, and recreate it below.
+-- All or nothing: if any step fails, the others are undone (XACT_ABORT + transaction).
 IF COL_LENGTH('dbo.Users', 'student_id') IS NOT NULL AND COL_LENGTH('dbo.Users', 'member_id') IS NULL
+BEGIN
+    SET XACT_ABORT ON;
+    BEGIN TRANSACTION;
+    IF EXISTS (SELECT 1 FROM sys.indexes WHERE name = 'UQ_Users_student_id' AND object_id = OBJECT_ID('dbo.Users'))
+        DROP INDEX UQ_Users_student_id ON dbo.Users;
+    IF EXISTS (SELECT 1 FROM sys.indexes WHERE name = 'UQ_Users_member_id' AND object_id = OBJECT_ID('dbo.Users'))
+        DROP INDEX UQ_Users_member_id ON dbo.Users;
     EXEC sp_rename 'dbo.Users.student_id', 'member_id', 'COLUMN';
-IF EXISTS (SELECT 1 FROM sys.indexes WHERE name = 'UQ_Users_student_id')
-    EXEC sp_rename 'dbo.Users.UQ_Users_student_id', 'UQ_Users_member_id', 'INDEX';
+    COMMIT TRANSACTION;
+END
 
 -- Inside EXEC(...) so SQL Server only checks it when it runs, after the rename above.
 -- (SQL Server reads the whole script first, and would otherwise stop here on an old
