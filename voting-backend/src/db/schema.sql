@@ -22,8 +22,11 @@ IF COL_LENGTH('dbo.Users', 'student_id') IS NOT NULL AND COL_LENGTH('dbo.Users',
 IF EXISTS (SELECT 1 FROM sys.indexes WHERE name = 'UQ_Users_student_id')
     EXEC sp_rename 'dbo.Users.UQ_Users_student_id', 'UQ_Users_member_id', 'INDEX';
 
+-- Inside EXEC(...) so SQL Server only checks it when it runs, after the rename above.
+-- (SQL Server reads the whole script first, and would otherwise stop here on an old
+-- database because member_id doesn't exist yet at that moment.)
 IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name = 'UQ_Users_member_id')
-CREATE UNIQUE INDEX UQ_Users_member_id ON dbo.Users (member_id) WHERE member_id IS NOT NULL;
+    EXEC('CREATE UNIQUE INDEX UQ_Users_member_id ON dbo.Users (member_id) WHERE member_id IS NOT NULL');
 
 IF OBJECT_ID('dbo.Elections', 'U') IS NULL
 CREATE TABLE dbo.Elections (
