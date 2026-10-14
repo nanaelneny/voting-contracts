@@ -61,6 +61,7 @@ async function request(method, path, { body, anonymous = false } = {}) {
 
 export const api = {
   // Accounts
+  settings: () => request("GET", "/settings", { anonymous: true }),
   register: (body) => request("POST", "/auth/register", { body }),
   login: (body) => request("POST", "/auth/login", { body }),
   me: () => request("GET", "/auth/me"),
@@ -69,6 +70,7 @@ export const api = {
   listElections: () => request("GET", "/elections"),
   getElection: (id) => request("GET", `/elections/${id}`),
   getResults: (id) => request("GET", `/elections/${id}/results`),
+  getChain: () => request("GET", "/chain", { anonymous: true }),
   getGroup: (id) => request("GET", `/elections/${id}/group`, { anonymous: true }),
 
   // Voter registration
@@ -84,6 +86,8 @@ export const api = {
   deleteElection: (id) => request("DELETE", `/elections/${id}`),
   addCandidate: (id, body) => request("POST", `/elections/${id}/candidates`, { body }),
   removeCandidate: (id, candidateId) => request("DELETE", `/elections/${id}/candidates/${candidateId}`),
+  setCandidatePhoto: (id, candidateId, image) => request("PUT", `/elections/${id}/candidates/${candidateId}/photo`, { body: { image } }),
+  removeCandidatePhoto: (id, candidateId) => request("DELETE", `/elections/${id}/candidates/${candidateId}/photo`),
   listRegistrations: (id, status) => request("GET", `/elections/${id}/registrations${status ? `?status=${status}` : ""}`),
   reviewRegistrations: (id, ids, status) => request("POST", `/elections/${id}/registrations/review`, { body: { ids, status } }),
   publish: (id) => request("POST", `/elections/${id}/publish`),

@@ -1,7 +1,7 @@
 // POST /api/elections/:id/votes — the relay endpoint.
 //
 // This route deliberately has NO login. If voters had to be logged in to submit
-// a ballot, the server could match the ballot to the student. The zero-knowledge
+// a ballot, the server could match the ballot to the voter. The zero-knowledge
 // proof is what proves the vote is from a registered voter.
 const express = require("express");
 const { rateLimit } = require("express-rate-limit");

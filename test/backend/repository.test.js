@@ -30,9 +30,9 @@ function repositorySuite(name, makeRepo, resetRepo) {
         startTime: new Date("2030-01-01T08:00:00Z"), endTime: new Date("2030-01-01T17:00:00Z"), ...extra,
       });
 
-    it("creates and finds users, rejecting duplicate emails and student ids", async () => {
-      const u = await user(1, { studentId: "STU1" });
-      expect(u).to.include({ fullName: "User 1", email: "user1@test.edu", studentId: "STU1", role: "voter" });
+    it("creates and finds users, rejecting duplicate emails and member ids", async () => {
+      const u = await user(1, { memberId: "STU1" });
+      expect(u).to.include({ fullName: "User 1", email: "user1@test.edu", memberId: "STU1", role: "voter" });
       expect((await repo.findUserByEmail("user1@test.edu")).id).to.equal(u.id);
       expect((await repo.findUserById(u.id)).email).to.equal("user1@test.edu");
       expect(await repo.findUserByEmail("nobody@test.edu")).to.equal(null);
@@ -40,9 +40,9 @@ function repositorySuite(name, makeRepo, resetRepo) {
       let err = await user(1).catch((e) => e);
       expect(err).to.be.instanceOf(DuplicateError);
       expect(err.field).to.equal("email");
-      err = await user(2, { studentId: "STU1" }).catch((e) => e);
-      expect(err.field).to.equal("studentId");
-      await user(3); // two users without a student id are fine
+      err = await user(2, { memberId: "STU1" }).catch((e) => e);
+      expect(err.field).to.equal("memberId");
+      await user(3); // two users without a member id are fine
       await user(4);
     });
 
@@ -86,6 +86,31 @@ function repositorySuite(name, makeRepo, resetRepo) {
       expect((await repo.listCandidates(e.id)).map((c) => c.name)).to.deep.equal(["Gloria"]);
     });
 
+    it("stores, replaces and removes candidate photos", async () => {
+      const admin = await user(1, { role: "admin" });
+      const e = await election(admin.id);
+      const c = await repo.addCandidate(e.id, { name: "Ama" });
+      expect((await repo.getCandidate(c.id)).photoUpdatedAt).to.equal(null);
+      expect(await repo.getCandidatePhoto(c.id)).to.equal(null);
+
+      await repo.setCandidatePhoto(c.id, { contentType: "image/png", data: Buffer.from([1, 2, 3]) });
+      const p1 = await repo.getCandidatePhoto(c.id);
+      expect(p1.contentType).to.equal("image/png");
+      expect([...p1.data]).to.deep.equal([1, 2, 3]);
+      expect((await repo.listCandidates(e.id))[0].photoUpdatedAt).to.be.instanceOf(Date);
+
+      await repo.setCandidatePhoto(c.id, { contentType: "image/jpeg", data: Buffer.from([4, 5]) });
+      expect((await repo.getCandidatePhoto(c.id)).contentType).to.equal("image/jpeg");
+
+      await repo.deleteCandidatePhoto(c.id);
+      expect(await repo.getCandidatePhoto(c.id)).to.equal(null);
+
+      // Deleting the candidate also removes its photo
+      await repo.setCandidatePhoto(c.id, { contentType: "image/png", data: Buffer.from([1]) });
+      await repo.deleteCandidate(c.id);
+      expect(await repo.getCandidatePhoto(c.id)).to.equal(null);
+    });
+
     it("saves registrations, replaces a commitment, and rejects duplicate commitments", async () => {
       const admin = await user(1, { role: "admin" });
       const [v1, v2] = [await user(2), await user(3)];
@@ -119,7 +144,7 @@ function repositorySuite(name, makeRepo, resetRepo) {
 
       const listed = await repo.listRegistrations(e.id, { status: "approved" });
       expect(listed.map((r) => r.id)).to.deep.equal([regs[0].id, regs[1].id, regs[2].id]);
-      expect(listed[0].user).to.deep.equal({ fullName: "User 2", email: "user2@test.edu", studentId: null });
+      expect(listed[0].user).to.deep.equal({ fullName: "User 2", email: "user2@test.edu", memberId: null });
       expect((await repo.listRegistrations(e.id)).length).to.equal(4);
 
       expect((await repo.listApprovedOffChain(e.id)).length).to.equal(3);

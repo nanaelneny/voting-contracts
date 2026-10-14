@@ -28,6 +28,10 @@ const CONFIG = {
   minPublishLeadSeconds: 120,
   voterBatchSize: 2, // small, so the tests exercise batching
   relayRateLimitPerMinute: 1000,
+  minVoters: 0, // most tests publish small elections; one test checks the minimum
+  allowedEmailDomains: ["st.knust.edu.gh"],
+  organisationName: "KNUST SRC",
+  memberIdLabel: "Student ID",
 };
 
 /**
@@ -59,7 +63,7 @@ async function setup({ rpcUrl } = {}) {
 
 async function registerVoter(app, n) {
   const res = await request(app).post("/api/auth/register").send({
-    fullName: `Student ${n}`, email: `student${n}@st.knust.edu.gh`, studentId: `2026${n}`, password: "password123",
+    fullName: `Student ${n}`, email: `student${n}@st.knust.edu.gh`, memberId: `2026${n}`, password: "password123",
   });
   expect(res.status).to.equal(201);
   return res.body.token;
@@ -99,7 +103,7 @@ describe("Backend API", function () {
 
     it("public sign-up always creates a voter, and /me returns the account", async () => {
       const res = await request(ctx.app).post("/api/auth/register").send({
-        fullName: "Ama Mensah", email: "AMA@st.knust.edu.gh", password: "password123", role: "admin",
+        fullName: "Ama Mensah", email: "AMA@st.knust.edu.gh", memberId: "20260001", password: "password123", role: "admin",
       });
       expect(res.status).to.equal(201);
       expect(res.body.user).to.include({ email: "ama@st.knust.edu.gh", role: "voter" });
@@ -110,12 +114,28 @@ describe("Backend API", function () {
     });
 
     it("rejects duplicate emails, short passwords and bad emails", async () => {
-      const base = { fullName: "Kofi", email: "kofi@st.knust.edu.gh", password: "password123" };
+      const base = { fullName: "Kofi", email: "kofi@st.knust.edu.gh", memberId: "20260002", password: "password123" };
       expect((await request(ctx.app).post("/api/auth/register").send(base)).status).to.equal(201);
       const dup = await request(ctx.app).post("/api/auth/register").send(base);
       expect(dup.status).to.equal(409);
-      expect((await request(ctx.app).post("/api/auth/register").send({ ...base, email: "x@y.z", password: "short" })).status).to.equal(400);
+      expect((await request(ctx.app).post("/api/auth/register").send({ ...base, email: "x@st.knust.edu.gh", password: "short" })).status).to.equal(400);
       expect((await request(ctx.app).post("/api/auth/register").send({ ...base, email: "not-an-email" })).status).to.equal(400);
+    });
+
+    it("one person, one account: member ID required and unique, organisation email only", async () => {
+      const base = { fullName: "Yaw", email: "yaw@st.knust.edu.gh", password: "password123" };
+      const noId = await request(ctx.app).post("/api/auth/register").send(base);
+      expect(noId.status).to.equal(400);
+
+      const sameId = await request(ctx.app).post("/api/auth/register").send({ ...base, email: "yaw2@st.knust.edu.gh", memberId: "20260002" });
+      expect(sameId.status).to.equal(409); // Kofi's ID, from the test above
+      expect(sameId.body.error).to.equal("That Student ID is already registered"); // uses the configured label
+
+      const gmail = await request(ctx.app).post("/api/auth/register").send({ ...base, email: "yaw@gmail.com", memberId: "20260003" });
+      expect(gmail.body.code).to.equal("EMAIL_DOMAIN");
+
+      const settings = await request(ctx.app).get("/api/settings");
+      expect(settings.body).to.deep.equal({ organisationName: "KNUST SRC", memberIdLabel: "Student ID", allowedEmailDomains: ["st.knust.edu.gh"] });
     });
 
     it("login checks the password and doesn't reveal whether an email exists", async () => {
@@ -173,6 +193,18 @@ describe("Backend API", function () {
       const soon = await createElection(ctx, { startIn: 30 });
       const r2 = await request(ctx.app).post(`/api/elections/${soon.id}/publish`).set(as(ctx.adminToken));
       expect(r2.body.code).to.equal("START_TOO_SOON");
+    });
+
+    it("won't publish with too few voters to keep ballots secret", async () => {
+      const e = await createElection(ctx);
+      CONFIG.minVoters = 3;
+      try {
+        const res = await request(ctx.app).post(`/api/elections/${e.id}/publish`).set(as(ctx.adminToken));
+        expect(res.status).to.equal(400);
+        expect(res.body.code).to.equal("TOO_FEW_VOTERS");
+      } finally {
+        CONFIG.minVoters = 0;
+      }
     });
 
     it("deletes a draft", async () => {
@@ -346,7 +378,7 @@ describe("Backend API", function () {
       expect(await ethers.provider.getBalance(ctx.relayerSigner.address)).to.equal(before);
     });
 
-    it("finalizing is refused until voting closes, then records the winner", async () => {
+    it("finalizing is refused until voting closes, then any logged-in user can record the winner", async () => {
       const early = await request(ctx.app).post(`/api/elections/${election.id}/finalize`).set(as(ctx.adminToken));
       expect(early.body.code).to.equal("CANNOT_FINALIZE");
 
@@ -354,7 +386,8 @@ describe("Backend API", function () {
       const late = await request(ctx.app).post(`/api/elections/${election.id}/votes`).send({ proof: await buildBallot(ctx.app, election.id, voters[2].identity, 0) });
       expect(late.body.code).to.equal("VOTING_NOT_OPEN");
 
-      const res = await request(ctx.app).post(`/api/elections/${election.id}/finalize`).set(as(ctx.adminToken));
+      expect((await request(ctx.app).post(`/api/elections/${election.id}/finalize`)).status).to.equal(401);
+      const res = await request(ctx.app).post(`/api/elections/${election.id}/finalize`).set(as(voters[0].token));
       expect(res.status).to.equal(200);
       expect(res.body.results).to.include({ phase: "finalized", tie: false });
       expect(res.body.results.winners).to.deep.equal([election.candidateIds[1]]); // Gloria, by database id
@@ -370,6 +403,64 @@ describe("Backend API", function () {
       expect(body.stats.vote.rejected).to.be.greaterThan(0);
       expect(body.stats.vote.avgGasUsed).to.be.within(300_000, 450_000);
       expect(body.stats.finalize.success).to.equal(1);
+    });
+  });
+
+  describe("Candidate photos", function () {
+    let ctx, election;
+    // Smallest valid PNG (1×1 pixel)
+    const PNG = Buffer.from("89504e470d0a1a0a0000000d4948445200000001000000010806000000" + "1f15c4890000000d49444154789c6360000002000154a24f5d0000000049454e44ae426082", "hex");
+    const dataUrl = (type, buf) => `data:${type};base64,${buf.toString("base64")}`;
+    before(async () => {
+      ctx = await setup();
+      election = await createElection(ctx);
+    });
+
+    it("the admin uploads a photo; anyone can see it", async () => {
+      const [cid] = election.candidateIds;
+      const up = await request(ctx.app).put(`/api/elections/${election.id}/candidates/${cid}/photo`).set(as(ctx.adminToken))
+        .send({ image: dataUrl("image/png", PNG) });
+      expect(up.status).to.equal(200);
+      expect(up.body.photoUrl).to.match(new RegExp(`^/api/candidates/${cid}/photo\\?v=\\d+$`));
+
+      const { body } = await request(ctx.app).get(`/api/elections/${election.id}`);
+      expect(body.candidates[0].photoUrl).to.equal(up.body.photoUrl);
+      expect(body.candidates[1].photoUrl).to.equal(null);
+
+      const img = await request(ctx.app).get(up.body.photoUrl);
+      expect(img.status).to.equal(200);
+      expect(img.headers["content-type"]).to.equal("image/png");
+      expect(Buffer.compare(img.body, PNG)).to.equal(0);
+
+      const results = await request(ctx.app).get(`/api/elections/${election.id}/results`);
+      expect(results.body.candidates[0].photoUrl).to.equal(up.body.photoUrl);
+    });
+
+    it("refuses files that aren't images, oversized photos and non-admins", async () => {
+      const [, cid] = election.candidateIds;
+      const url = `/api/elections/${election.id}/candidates/${cid}/photo`;
+      const fake = await request(ctx.app).put(url).set(as(ctx.adminToken)).send({ image: dataUrl("image/png", Buffer.from("<script>alert(1)</script>")) });
+      expect(fake.body.code).to.equal("BAD_PHOTO");
+      const big = Buffer.concat([PNG, Buffer.alloc(600 * 1024)]);
+      expect((await request(ctx.app).put(url).set(as(ctx.adminToken)).send({ image: dataUrl("image/png", big) })).status).to.be.oneOf([400, 413]);
+      const voter = await registerVoter(ctx.app, 1);
+      expect((await request(ctx.app).put(url).set(as(voter)).send({ image: dataUrl("image/png", PNG) })).status).to.equal(403);
+    });
+
+    it("photos can be removed, and are locked once voting opens", async () => {
+      const [cid, cid2] = election.candidateIds;
+      await request(ctx.app).delete(`/api/elections/${election.id}/candidates/${cid}/photo`).set(as(ctx.adminToken)).expect(204);
+      expect((await request(ctx.app).get(`/api/elections/${election.id}`)).body.candidates[0].photoUrl).to.equal(null);
+
+      await request(ctx.app).post(`/api/elections/${election.id}/publish`).set(as(ctx.adminToken)).expect(200);
+      // Still allowed after publishing, before voting opens
+      await request(ctx.app).put(`/api/elections/${election.id}/candidates/${cid2}/photo`).set(as(ctx.adminToken))
+        .send({ image: dataUrl("image/png", PNG) }).expect(200);
+
+      await time.increaseTo(election.start);
+      const locked = await request(ctx.app).put(`/api/elections/${election.id}/candidates/${cid}/photo`).set(as(ctx.adminToken))
+        .send({ image: dataUrl("image/png", PNG) });
+      expect(locked.body.code).to.equal("PHOTO_LOCKED");
     });
   });
 

@@ -1,6 +1,7 @@
 // /api/elections — elections, candidates, publishing, results.
 const express = require("express");
-const { asyncHandler, badRequest, notFound } = require("../errors");
+const { asyncHandler, badRequest, conflict, notFound } = require("../errors");
+const { parsePhoto, photoUrl } = require("../services/photos");
 const { electionStatus, assertEditable } = require("../services/electionService");
 const v = require("./validate");
 
@@ -35,7 +36,7 @@ function electionRoutes({ repo, auth, elections, relay, chain, clock }) {
     const candidates = await repo.listCandidates(election.id);
     res.json({
       election: summary(election, await clock()),
-      candidates: candidates.map((c) => ({ id: c.id, name: c.name, party: c.party, chainIndex: c.chainIndex })),
+      candidates: candidates.map((c) => ({ id: c.id, name: c.name, party: c.party, chainIndex: c.chainIndex, photoUrl: photoUrl(c) })),
     });
   }));
 
@@ -104,7 +105,33 @@ function electionRoutes({ repo, auth, elections, relay, chain, clock }) {
     const name = v.text(req.body, "name", { max: 150 });
     const party = v.text(req.body, "party", { required: false, max: 100 });
     const candidate = await repo.addCandidate(election.id, { name, party });
-    res.status(201).json({ candidate: { id: candidate.id, name: candidate.name, party: candidate.party } });
+    res.status(201).json({ candidate: { id: candidate.id, name: candidate.name, party: candidate.party, photoUrl: null } });
+  }));
+
+  // Photos can be changed until voting opens. After that they're locked, so what voters
+  // see can't change during the election. (Photos are website-only; the blockchain
+  // stores candidate names.)
+  async function loadCandidateForPhoto(req) {
+    const election = await load(req);
+    const status = electionStatus(election, await clock());
+    if (!["draft", "publishing", "upcoming"].includes(status)) {
+      throw conflict("Photos can't be changed once voting has opened", "PHOTO_LOCKED");
+    }
+    const candidate = await repo.getCandidate(v.id(req.params.candidateId, "candidate id"));
+    if (!candidate || candidate.electionId !== election.id) throw notFound("Candidate not found");
+    return candidate;
+  }
+
+  router.put("/:id/candidates/:candidateId/photo", auth.requireAdmin, asyncHandler(async (req, res) => {
+    const candidate = await loadCandidateForPhoto(req);
+    await repo.setCandidatePhoto(candidate.id, parsePhoto(req.body));
+    res.json({ photoUrl: photoUrl(await repo.getCandidate(candidate.id)) });
+  }));
+
+  router.delete("/:id/candidates/:candidateId/photo", auth.requireAdmin, asyncHandler(async (req, res) => {
+    const candidate = await loadCandidateForPhoto(req);
+    await repo.deleteCandidatePhoto(candidate.id);
+    res.status(204).end();
   }));
 
   router.delete("/:id/candidates/:candidateId", auth.requireAdmin, asyncHandler(async (req, res) => {
@@ -131,7 +158,9 @@ function electionRoutes({ repo, auth, elections, relay, chain, clock }) {
     res.json({ cancelled: true });
   }));
 
-  router.post("/:id/finalize", auth.requireAdmin, asyncHandler(async (req, res) => {
+  // Any logged-in user can record the final result once voting has closed, just as
+  // anyone can call finalize() on the contract. Nobody has to trust the admin to do it.
+  router.post("/:id/finalize", auth.requireAuth, asyncHandler(async (req, res) => {
     const election = await load(req);
     const tx = await relay.finalize(election);
     res.json({ ...tx, results: await elections.results(election) });

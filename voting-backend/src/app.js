@@ -26,9 +26,33 @@ function createApp({ repo, chain, config, clock = async () => new Date(), chainI
   const app = express();
   app.disable("x-powered-by");
   app.use(cors({ origin: config.corsOrigin }));
+  // Photo uploads are bigger than other requests, so only their route gets a higher limit.
+  app.use("/api/elections/:id/candidates/:candidateId/photo", express.json({ limit: "800kb" }));
   app.use(express.json({ limit: "100kb" }));
 
   app.get("/api/health", (_req, res) => res.json({ ok: true }));
+  // How this installation is set up for its institution (shown on the website).
+  app.get("/api/settings", (_req, res) =>
+    res.json({
+      organisationName: config.organisationName || "",
+      memberIdLabel: config.memberIdLabel || "Member ID",
+      allowedEmailDomains: config.allowedEmailDomains || [],
+    })
+  );
+  // Candidate photos are public, like the candidate list.
+  app.get("/api/candidates/:id/photo", async (req, res, next) => {
+    try {
+      const id = Number(req.params.id);
+      const photo = Number.isInteger(id) && id > 0 ? await repo.getCandidatePhoto(id) : null;
+      if (!photo) return next(notFound("No photo"));
+      res.set("Content-Type", photo.contentType);
+      res.set("Cache-Control", "public, max-age=31536000, immutable"); // the URL changes when the photo does
+      res.set("X-Content-Type-Options", "nosniff");
+      res.send(Buffer.from(photo.data));
+    } catch (err) {
+      next(err);
+    }
+  });
   app.get("/api/chain", (_req, res) => res.json({ contractAddress: chain.address, ...chainInfo }));
 
   app.use("/api/auth", authRoutes(deps));

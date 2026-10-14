@@ -33,6 +33,6 @@ function createAuth({ config, repo }) {
 }
 
 /** The user fields that are safe to send to the browser. */
-const publicUser = (u) => ({ id: u.id, fullName: u.fullName, email: u.email, studentId: u.studentId, role: u.role });
+const publicUser = (u) => ({ id: u.id, fullName: u.fullName, email: u.email, memberId: u.memberId, role: u.role });
 
 module.exports = { createAuth, publicUser };

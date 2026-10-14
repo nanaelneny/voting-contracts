@@ -1,8 +1,11 @@
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { api } from "../../lib/api";
 import { formatDateTime, formatWindow } from "../../lib/format";
 import Results from "../../components/Results";
+import Avatar from "../../components/Avatar";
+import { prepareCandidatePhoto } from "../../lib/photo";
+import { useSettings } from "../../lib/settings";
 import { ErrorNotice, Notice, PageLoading, StatusTag, useAction, useLoad } from "../../components/ui";
 import { ElectionForm } from "./AdminPages";
 
@@ -70,7 +73,7 @@ function SetupChecklist({ candidates, registrations }) {
   const approved = registrations.filter((r) => r.status === "approved").length;
   const steps = [
     { done: candidates.length > 0, text: "Add the candidates" },
-    { done: approved > 0, text: "Approve students' registrations" },
+    { done: approved > 0, text: "Approve voters' registrations" },
     { done: false, text: "Publish the election to the blockchain, at least a few minutes before voting opens" },
   ];
   return (
@@ -139,11 +142,15 @@ function Candidates({ election, candidates, onChange }) {
       ) : (
         <ul className="mt-3 divide-y divide-rule border-y border-rule">
           {candidates.map((c) => (
-            <li key={c.id} className="flex items-center gap-3 py-3">
+            <li key={c.id} className="flex flex-wrap items-center gap-x-3 gap-y-2 py-3">
+              <Avatar name={c.name} photoUrl={c.photoUrl} size="lg" />
               <span className="min-w-0 flex-1">
                 <span className="block font-semibold">{c.name}</span>
                 {c.party && <span className="block text-sm text-muted">{c.party}</span>}
               </span>
+              {BEFORE_VOTING.includes(election.status) && (
+                <PhotoControls election={election} candidate={c} onChange={onChange} />
+              )}
               {editable && (
                 <button
                   type="button"
@@ -187,6 +194,50 @@ function Candidates({ election, candidates, onChange }) {
   );
 }
 
+/** Add, change or remove a candidate's photo. Allowed until voting opens. */
+function PhotoControls({ election, candidate, onChange }) {
+  const input = useRef(null);
+  const { busy, error, run } = useAction();
+  return (
+    <span className="flex flex-col items-end gap-1">
+      <span className="flex gap-3 text-sm">
+        <button type="button" className="font-semibold text-violet hover:underline disabled:opacity-50" disabled={busy} onClick={() => input.current?.click()}>
+          {busy ? "Uploading…" : candidate.photoUrl ? "Change photo" : "Add photo"}
+          <span className="sr-only"> for {candidate.name}</span>
+        </button>
+        {candidate.photoUrl && (
+          <button
+            type="button"
+            className="font-semibold text-muted hover:text-bad hover:underline disabled:opacity-50"
+            disabled={busy}
+            onClick={() => run(async () => { await api.removeCandidatePhoto(election.id, candidate.id); await onChange(); })}
+          >
+            Remove photo<span className="sr-only"> for {candidate.name}</span>
+          </button>
+        )}
+      </span>
+      <input
+        ref={input}
+        type="file"
+        accept="image/jpeg,image/png,image/webp"
+        className="sr-only"
+        tabIndex={-1}
+        aria-hidden="true"
+        onChange={(e) => {
+          const file = e.target.files?.[0];
+          e.target.value = "";
+          if (!file) return;
+          run(async () => {
+            await api.setCandidatePhoto(election.id, candidate.id, await prepareCandidatePhoto(file));
+            await onChange();
+          });
+        }}
+      />
+      <ErrorNotice error={error} className="max-w-xs" />
+    </span>
+  );
+}
+
 const TABS = [
   { key: "pending", label: "Waiting" },
   { key: "approved", label: "Approved" },
@@ -194,6 +245,7 @@ const TABS = [
 ];
 
 function Registrations({ election, state }) {
+  const { memberIdLabel } = useSettings();
   const [tab, setTab] = useState("pending");
   const [selected, setSelected] = useState(new Set());
   const { busy, error, run } = useAction();
@@ -257,8 +309,8 @@ function Registrations({ election, state }) {
                     />
                   )}
                 </th>
-                <th className="py-2 pr-3 font-semibold">Student</th>
-                <th className="py-2 pr-3 font-semibold">Student ID</th>
+                <th className="py-2 pr-3 font-semibold">Name</th>
+                <th className="py-2 pr-3 font-semibold">{memberIdLabel}</th>
                 <th className="py-2 pr-3 font-semibold">Registered</th>
                 <th className="py-2 font-semibold">Voter list</th>
               </tr>
@@ -281,7 +333,7 @@ function Registrations({ election, state }) {
                     <span className="block font-semibold">{r.user.fullName}</span>
                     <span className="block text-xs text-muted">{r.user.email}</span>
                   </td>
-                  <td className="py-2.5 pr-3">{r.user.studentId || <span className="text-muted">–</span>}</td>
+                  <td className="py-2.5 pr-3">{r.user.memberId || <span className="text-muted">–</span>}</td>
                   <td className="py-2.5 pr-3 text-muted">{formatDateTime(r.createdAt)}</td>
                   <td className="py-2.5">{r.onChain ? <span className="font-semibold text-good">On blockchain</span> : <span className="text-muted">Not yet</span>}</td>
                 </tr>
@@ -360,7 +412,7 @@ function ChainActions({ election, candidates, registrations, finalized, onDone }
           <h3>Add approved voters</h3>
           <p className="mt-1 text-sm text-muted">
             {approvedWaiting
-              ? `${approvedWaiting} approved student${approvedWaiting === 1 ? " isn't" : "s aren't"} on the voter list yet.`
+              ? `${approvedWaiting} approved voter${approvedWaiting === 1 ? " isn't" : "s aren't"} on the voter list yet.`
               : "Everyone approved is on the voter list."}
           </p>
           <button

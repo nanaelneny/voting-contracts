@@ -16,11 +16,11 @@ Votes are never stored in the database. They exist only on-chain.
 | 4. Publish: create the election on-chain with candidates and approved voters | Admin | `POST /api/elections/:id/publish` |
 | 5. Add late approvals (any time before voting opens) | Admin | `POST /api/elections/:id/sync-voters` |
 | 6. Fetch the voter group, build a zero-knowledge proof in the browser | Voter's browser | `GET /api/elections/:id/group` |
-| 7. Submit the ballot. **No login**, so the server can't link it to the student | Anyone | `POST /api/elections/:id/votes` |
+| 7. Submit the ballot. **No login**, so the server can't link it to the voter | Anyone | `POST /api/elections/:id/votes` |
 | 8. After voting closes, record the result on-chain | Admin | `POST /api/elections/:id/finalize` |
 | Live and final results, read from the blockchain | Anyone | `GET /api/elections/:id/results` |
 
-Other endpoints: `POST /api/auth/register`, `POST /api/auth/login`, `GET /api/auth/me`,
+Other endpoints: `GET /api/settings` (institution name, member ID label, allowed email domains), `POST /api/auth/register`, `POST /api/auth/login`, `GET /api/auth/me`,
 `GET /api/elections`, `GET /api/elections/:id`, `PUT/DELETE /api/elections/:id` (drafts only),
 `POST /api/elections/:id/cancel` (before voting opens), `GET /api/admin/relay-stats`.
 
@@ -28,9 +28,9 @@ Errors come back as `{ "error": "message for the user", "code": "MACHINE_CODE" }
 
 ## Privacy notes
 
-- The database knows which student registered which **commitment**. A ballot carries a
+- The database knows which member registered which **commitment**. A ballot carries a
   zero-knowledge proof that hides which commitment cast it, so the database can't link
-  ballots to students.
+  ballots to voters.
 - The vote endpoint takes no login token, and nothing about the request (IP address, proof)
   is logged. The relay log keeps only election, transaction hash, outcome, gas and latency.
 - **Remaining risk:** the server that receives a ballot also sees the request's IP address and
@@ -54,7 +54,7 @@ Errors come back as `{ "error": "message for the user", "code": "MACHINE_CODE" }
    database and leaves your diploma `VotingDB` database untouched.
 
 4. **Create an admin account:**
-   `npm run create-admin -- admin@knust.edu.gh "Election Officer" "a-strong-password"`
+   `npm run create-admin -- admin@example.org "Election Officer" "a-strong-password"`
 
 5. **Run it.** Use three Git Bash terminals:
    ```bash

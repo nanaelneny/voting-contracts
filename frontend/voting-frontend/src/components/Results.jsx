@@ -1,10 +1,14 @@
 // Vote counts read from the blockchain, as horizontal bars.
 import { useEffect } from "react";
 import { api } from "../lib/api";
-import { ErrorNotice, Spinner, useLoad } from "./ui";
+import { useAuth } from "../lib/auth";
+import Avatar from "./Avatar";
+import { ErrorNotice, Spinner, useAction, useLoad } from "./ui";
 
 export default function Results({ electionId, refreshMs = 0 }) {
   const { data, error, loading, reload } = useLoad(() => api.getResults(electionId), [electionId]);
+  const { user } = useAuth();
+  const finalize = useAction();
 
   useEffect(() => {
     if (!refreshMs) return undefined;
@@ -34,7 +38,20 @@ export default function Results({ electionId, refreshMs = 0 }) {
         <p className="mt-2 text-sm font-semibold text-warn">The top candidates are tied.</p>
       )}
       {data.phase === "ended" && (
-        <p className="mt-2 text-sm text-muted">Waiting for the final result to be recorded.</p>
+        <div className="mt-2 text-sm text-muted">
+          <p>Voting has closed. The final result hasn't been recorded on the blockchain yet.</p>
+          {user && (
+            <button
+              type="button"
+              className="btn-secondary mt-2"
+              disabled={finalize.busy}
+              onClick={() => finalize.run(async () => { await api.finalize(electionId); reload(); })}
+            >
+              {finalize.busy ? "Recording…" : "Record final result"}
+            </button>
+          )}
+          <ErrorNotice error={finalize.error} />
+        </div>
       )}
 
       <ol className="mt-4 space-y-3">
@@ -42,13 +59,14 @@ export default function Results({ electionId, refreshMs = 0 }) {
           const won = finalized && winners.has(c.id);
           return (
             <li key={c.id ?? i}>
-              <div className="flex items-end justify-between gap-3 text-sm">
-                <span className="font-semibold">
+              <div className="flex items-center gap-3 text-sm">
+                <Avatar name={c.name} photoUrl={c.photoUrl} size="sm" />
+                <span className="min-w-0 flex-1 font-semibold">
                   {c.name}
-                  {won && <span className="ml-2 rounded bg-violet px-1.5 py-0.5 text-xs font-semibold text-white">{data.tie ? "Tied" : "Elected"}</span>}
+                  {won && <span className="ml-2 rounded-sm bg-violet px-1.5 py-0.5 text-xs font-semibold text-white">{data.tie ? "Tied" : "Elected"}</span>}
                   {c.party && <span className="block text-xs font-normal text-muted">{c.party}</span>}
                 </span>
-                <span className="font-semibold">{c.votes}</span>
+                <span className="font-display text-base font-bold">{c.votes}</span>
               </div>
               <div className="mt-1 h-2.5 rounded-full bg-paper" aria-hidden="true">
                 <div

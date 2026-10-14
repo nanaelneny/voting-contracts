@@ -3,6 +3,7 @@ import { createRoot } from "react-dom/client";
 import { BrowserRouter, Link, Navigate, Route, Routes, useLocation } from "react-router-dom";
 import "./index.css";
 import { AuthProvider, useAuth } from "./lib/auth";
+import { SettingsProvider } from "./lib/settings";
 import Layout from "./components/Layout";
 import { PageLoading } from "./components/ui";
 import ElectionsPage from "./pages/ElectionsPage";
@@ -54,9 +55,11 @@ function App() {
 createRoot(document.getElementById("root")).render(
   <StrictMode>
     <BrowserRouter>
-      <AuthProvider>
-        <App />
-      </AuthProvider>
+      <SettingsProvider>
+        <AuthProvider>
+          <App />
+        </AuthProvider>
+      </SettingsProvider>
     </BrowserRouter>
   </StrictMode>
 );

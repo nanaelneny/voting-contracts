@@ -37,6 +37,9 @@ function errorHandler(err, req, res, _next) {
   if (err.code === "ElectionNotFound") {
     return res.status(409).json({ error: CHAIN_MISMATCH_MESSAGE, code: "CHAIN_MISMATCH" });
   }
+  if (err.type === "entity.too.large") {
+    return res.status(413).json({ error: "That upload is too large", code: "TOO_LARGE" });
+  }
   if (err.type === "entity.parse.failed") {
     return res.status(400).json({ error: "Request body is not valid JSON", code: "BAD_JSON" });
   }

@@ -2,28 +2,36 @@
 @import "@fontsource/public-sans/500.css";
 @import "@fontsource/public-sans/600.css";
 @import "@fontsource/public-sans/800.css";
+@import "@fontsource-variable/archivo/wdth.css";
 @import "tailwindcss";
 
 /*
   Secret Ballot design tokens
-  paper  #F4F6F9  cool ballot paper
+  Taken from a Ghanaian polling station: the printed ballot, its ink, and the violet
+  indelible ink voters press their thumb into.
+
+  paper  #EEF1F5  cool ballot paper
   sheet  #FFFFFF  the ballot itself
-  ink    #1C2740  printing ink (text, rules)
+  ink    #172036  printing ink (text, rules)
   muted  #586379  secondary text
-  rule   #D6DCE6  lines
-  violet #5B3A9E  indelible election ink, the one accent
+  rule   #D3D9E3  lines
+  violet #5A2D91  indelible ink: the thumbprint, and the one accent
+
+  Type: Archivo, widened, for headings and candidate names (like a printed ballot);
+  Public Sans for everything else.
 */
 @theme {
   --font-sans: "Public Sans", ui-sans-serif, system-ui, sans-serif;
+  --font-display: "Archivo Variable", "Public Sans", ui-sans-serif, sans-serif;
 
-  --color-paper: #f4f6f9;
+  --color-paper: #eef1f5;
   --color-sheet: #ffffff;
-  --color-ink: #1c2740;
+  --color-ink: #172036;
   --color-muted: #586379;
-  --color-rule: #d6dce6;
-  --color-violet: #5b3a9e;
-  --color-violet-dark: #45297d;
-  --color-violet-wash: #efe9f9;
+  --color-rule: #d3d9e3;
+  --color-violet: #5a2d91;
+  --color-violet-dark: #431f6e;
+  --color-violet-wash: #f0e9f8;
   --color-good: #1e7347;
   --color-good-wash: #e5f3eb;
   --color-warn: #8a5a0a;
@@ -47,17 +55,21 @@
     outline-offset: 2px;
     border-radius: 2px;
   }
+  h1,
+  h2 {
+    font-family: var(--font-display);
+    font-stretch: 112%;
+  }
   h1 {
     font-size: 2rem;
-    line-height: 1.15;
-    font-weight: 800;
-    letter-spacing: -0.02em;
+    line-height: 1.12;
+    font-weight: 750;
+    letter-spacing: -0.015em;
   }
   h2 {
     font-size: 1.25rem;
     line-height: 1.3;
     font-weight: 700;
-    letter-spacing: -0.01em;
   }
   h3 {
     font-size: 1rem;
@@ -118,6 +130,21 @@
 @media (prefers-reduced-motion: reduce) {
   .animate-seal,
   .animate-flap {
+    animation: none;
+  }
+}
+
+/* The thumb pressing into the box: a quick squash, then the print settles. */
+@keyframes press {
+  0% { transform: scale(1.35); opacity: 0; }
+  55% { transform: scale(0.92); opacity: 1; }
+  100% { transform: scale(1); opacity: 1; }
+}
+.animate-press {
+  animation: press 260ms cubic-bezier(0.3, 0, 0.2, 1) both;
+}
+@media (prefers-reduced-motion: reduce) {
+  .animate-press {
     animation: none;
   }
 }

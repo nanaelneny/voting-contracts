@@ -1,5 +1,6 @@
 import { Link, NavLink, Outlet, useNavigate } from "react-router-dom";
 import { useAuth } from "../lib/auth";
+import { useSettings } from "../lib/settings";
 
 function Mark() {
   // A ballot box with a slot: the app's mark.
@@ -8,7 +9,9 @@ function Mark() {
       <rect x="4" y="12" width="24" height="16" rx="2" fill="var(--color-ink)" />
       <rect x="9" y="15" width="14" height="2.5" rx="1.25" fill="var(--color-paper)" />
       <path d="M11 4h10v9H11z" fill="var(--color-sheet)" stroke="var(--color-ink)" strokeWidth="2" />
-      <path d="M13.5 8.5l2 2 3.5-4" fill="none" stroke="var(--color-violet)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+      {/* a violet thumbprint on the ballot */}
+      <ellipse cx="16" cy="8.6" rx="2.6" ry="3.1" fill="var(--color-violet)" />
+      <ellipse cx="16" cy="9" rx="1.2" ry="1.6" fill="none" stroke="var(--color-sheet)" strokeWidth="0.7" />
     </svg>
   );
 }
@@ -18,6 +21,7 @@ const navClass = ({ isActive }) =>
 
 export default function Layout() {
   const { user, signOut } = useAuth();
+  const { organisationName } = useSettings();
   const navigate = useNavigate();
 
   return (
@@ -27,10 +31,13 @@ export default function Layout() {
       </a>
       <header className="border-b border-rule bg-sheet">
         <div className="mx-auto flex max-w-5xl flex-wrap items-center gap-x-6 gap-y-2 px-4 py-3">
-          <Link to="/" className="flex items-center gap-2 text-lg font-extrabold tracking-tight">
+          <Link to="/" className="flex items-center gap-2 font-display text-lg font-bold [font-stretch:115%]">
             <Mark />
             Secret Ballot
           </Link>
+          {organisationName && (
+            <span className="-ml-3 border-l border-rule pl-3 text-sm font-semibold text-muted">{organisationName}</span>
+          )}
           <nav className="flex items-center gap-1" aria-label="Main">
             <NavLink to="/" end className={navClass}>Elections</NavLink>
             {user?.role === "admin" && <NavLink to="/admin" className={navClass}>Manage</NavLink>}

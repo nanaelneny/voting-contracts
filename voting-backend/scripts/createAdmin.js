@@ -1,5 +1,5 @@
 // Creates an admin account. Public registration only ever creates voters.
-//   npm run create-admin -- admin@knust.edu.gh "Election Officer" "a-strong-password"
+//   npm run create-admin -- admin@example.org "Election Officer" "a-strong-password"
 const bcrypt = require("bcryptjs");
 const { loadConfig } = require("../src/config");
 const { createMssqlRepository } = require("../src/db/mssqlRepository");

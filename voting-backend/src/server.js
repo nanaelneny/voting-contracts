@@ -1,26 +1,22 @@
 // Starts the API with the real SQL Server database and blockchain.
 //   npm start        (or: npm run dev  to restart on file changes)
-const path = require("path");
 const { Wallet } = require("ethers");
-const { loadConfig } = require("./config");
+const { loadConfig, EXPLORERS } = require("./config");
 const { createApp } = require("./app");
 const { createMssqlRepository } = require("./db/mssqlRepository");
 const { createVotingClient } = require("./chain/votingClient");
 const { createProvider } = require("./chain/provider");
+const { findDeployment } = require("./chain/deployment");
 
 async function main() {
   const config = loadConfig();
 
-  const abiDir = path.join(__dirname, "..", "abi");
-  if (!require("fs").existsSync(path.join(abiDir, "VotingV2.address.json"))) {
-    throw new Error('Contract not deployed yet. Run "npm run deploy:local" in the project root first.');
-  }
-  const deployment = require(path.join(abiDir, "VotingV2.address.json"));
-  const { abi } = require(path.join(abiDir, "VotingV2.json"));
-  const address = config.chain.contractAddress || deployment.address;
-
   const provider = createProvider(config.chain.rpcUrl);
   const network = await provider.getNetwork();
+  const { address, abi } = findDeployment(Number(network.chainId), config.chain.contractAddress);
+  if ((await provider.getCode(address)) === "0x") {
+    throw new Error(`No contract at ${address} on chain ${network.chainId}. Was the local blockchain restarted? Deploy again.`);
+  }
   const chain = createVotingClient({
     address,
     abi,
@@ -30,8 +26,11 @@ async function main() {
   });
 
   const repo = await createMssqlRepository(config.db);
+  await repo.ensureSchema(); // adds any tables introduced by updates (e.g. candidate photos)
   await warnIfChainWasReset(repo, chain);
-  const app = createApp({ repo, chain, config, chainInfo: { chainId: Number(network.chainId) } });
+  const chainId = Number(network.chainId);
+  const explorerUrl = config.chain.explorerUrl || EXPLORERS[chainId] || null;
+  const app = createApp({ repo, chain, config, chainInfo: { chainId, explorerUrl } });
 
   app.listen(config.port, () => {
     console.log(`Voting API on http://localhost:${config.port}  (contract ${address}, chain ${network.chainId})`);

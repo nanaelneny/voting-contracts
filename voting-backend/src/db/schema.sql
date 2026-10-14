@@ -9,14 +9,33 @@ CREATE TABLE dbo.Users (
     id            INT IDENTITY(1,1) PRIMARY KEY,
     full_name     NVARCHAR(150)  NOT NULL,
     email         NVARCHAR(255)  NOT NULL CONSTRAINT UQ_Users_email UNIQUE,
-    student_id    NVARCHAR(50)   NULL,
+    member_id     NVARCHAR(50)   NULL,     -- student ID, staff number, membership number...
     password_hash NVARCHAR(255)  NOT NULL,
     role          NVARCHAR(10)   NOT NULL CONSTRAINT CK_Users_role CHECK (role IN ('admin', 'voter')),
     created_at    DATETIME2      NOT NULL CONSTRAINT DF_Users_created_at DEFAULT SYSUTCDATETIME()
 );
 
-IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name = 'UQ_Users_student_id')
-CREATE UNIQUE INDEX UQ_Users_student_id ON dbo.Users (student_id) WHERE student_id IS NOT NULL;
+-- Databases created before the project was generalised beyond schools called this column
+-- student_id. Rename it so existing accounts are kept. SQL Server won't rename a column
+-- while an index uses it, so: remove the unique index, rename, and recreate it below.
+-- All or nothing: if any step fails, the others are undone (XACT_ABORT + transaction).
+IF COL_LENGTH('dbo.Users', 'student_id') IS NOT NULL AND COL_LENGTH('dbo.Users', 'member_id') IS NULL
+BEGIN
+    SET XACT_ABORT ON;
+    BEGIN TRANSACTION;
+    IF EXISTS (SELECT 1 FROM sys.indexes WHERE name = 'UQ_Users_student_id' AND object_id = OBJECT_ID('dbo.Users'))
+        DROP INDEX UQ_Users_student_id ON dbo.Users;
+    IF EXISTS (SELECT 1 FROM sys.indexes WHERE name = 'UQ_Users_member_id' AND object_id = OBJECT_ID('dbo.Users'))
+        DROP INDEX UQ_Users_member_id ON dbo.Users;
+    EXEC sp_rename 'dbo.Users.student_id', 'member_id', 'COLUMN';
+    COMMIT TRANSACTION;
+END
+
+-- Inside EXEC(...) so SQL Server only checks it when it runs, after the rename above.
+-- (SQL Server reads the whole script first, and would otherwise stop here on an old
+-- database because member_id doesn't exist yet at that moment.)
+IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name = 'UQ_Users_member_id')
+    EXEC('CREATE UNIQUE INDEX UQ_Users_member_id ON dbo.Users (member_id) WHERE member_id IS NOT NULL');
 
 IF OBJECT_ID('dbo.Elections', 'U') IS NULL
 CREATE TABLE dbo.Elections (
@@ -41,6 +60,16 @@ CREATE TABLE dbo.Candidates (
     party       NVARCHAR(100)  NULL,
     chain_index INT            NULL,       -- candidate id in the contract once published
     created_at  DATETIME2      NOT NULL CONSTRAINT DF_Candidates_created_at DEFAULT SYSUTCDATETIME()
+);
+
+-- Candidate photos, kept apart from Candidates so listing candidates doesn't load images.
+-- Photos are only shown on the website; the blockchain stores candidate names only.
+IF OBJECT_ID('dbo.CandidatePhotos', 'U') IS NULL
+CREATE TABLE dbo.CandidatePhotos (
+    candidate_id INT            NOT NULL PRIMARY KEY CONSTRAINT FK_CandidatePhotos_Candidates REFERENCES dbo.Candidates(id) ON DELETE CASCADE,
+    content_type VARCHAR(20)    NOT NULL,   -- image/jpeg, image/png or image/webp
+    data         VARBINARY(MAX) NOT NULL,
+    updated_at   DATETIME2      NOT NULL CONSTRAINT DF_CandidatePhotos_updated_at DEFAULT SYSUTCDATETIME()
 );
 
 -- A voter's request to take part in an election. The commitment is a public value
