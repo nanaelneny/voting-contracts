@@ -88,6 +88,46 @@ npm run coverage       # contract coverage report
 npm run test:gas       # gas cost per function
 ```
 
+## On a public test network
+
+Live deployments (source code verified on the explorers):
+
+| Network | Contract |
+|---|---|
+| Base Sepolia (L2) | [`0x1f70F78E01aA49f5490BE6D6Be637C10ab51Bf5A`](https://sepolia.basescan.org/address/0x1f70F78E01aA49f5490BE6D6Be637C10ab51Bf5A) |
+| Ethereum Sepolia (L1) | [`0x1f70F78E01aA49f5490BE6D6Be637C10ab51Bf5A`](https://sepolia.etherscan.io/address/0x1f70F78E01aA49f5490BE6D6Be637C10ab51Bf5A) |
+
+Both use the Semaphore team's official contract, so only VotingV2 is deployed. Keys and the
+Etherscan API key go in the root `.env` (see `.env.example`); never commit it.
+
+```bash
+npm run deploy:base-sepolia     # or deploy:sepolia
+npm run verify:base-sepolia     # publish the source on basescan (or verify:sepolia)
+```
+
+To run the website against a test network, set `RPC_URL` and the admin/relayer keys in
+`voting-backend/.env` (see the Base Sepolia section of `voting-backend/.env.example`), then
+`npm run db:reset` in `voting-backend`. No local blockchain is needed.
+
+## Evaluation
+
+```bash
+ETH_PRICE_USD=2500 npm run evaluate                      # one full election on the network in voting-backend/.env
+ETH_PRICE_USD=2500 VOTING_SECONDS=600 npm run evaluate   # on Ethereum Sepolia (12-second blocks)
+ETH_PRICE_USD=2500 npm run compare                       # Base vs Ethereum, with real-network cost estimates
+```
+
+Results are saved in `evaluation/results/`. Summary of the runs on 12–13 October 2026
+(10 voters, median per vote):
+
+| | Base Sepolia (L2) | Ethereum Sepolia (L1) |
+|---|---|---|
+| Vote confirmed | 2.7 s | 12.3 s |
+| Gas per vote | 335,821 | 521,161 (after Sepolia's Glamsterdam gas changes) |
+| Estimated real-network cost per vote | $0.005 | $0.13 (at that day's low gas price) |
+
+Voters pay nothing on either; the relayer pays. A double vote is refused before anything is sent.
+
 ## Gas (local Hardhat measurements)
 
 | Action | Gas (avg) |
@@ -105,4 +145,6 @@ verification is the main cost of privacy, which motivates Layer 2 deployment.
 - [x] VotingV2 contract with zero-knowledge (Semaphore) anonymous voting, and test suite
 - [x] Backend: accounts, voter registration, admin approval, publishing on-chain, gas-paying relayer, results
 - [x] Frontend: registration with in-browser voter keys and backup, ballot with in-browser proofs, admin screens, results, relay statistics
-- [ ] Layer 2 testnet deployment and gas/latency evaluation
+- [x] Base Sepolia (L2) and Ethereum Sepolia deployments, verified source, gas/latency/cost evaluation
+- [x] Candidate photos; configurable for any institution (name, member ID label, email domains)
+- [ ] Written report
