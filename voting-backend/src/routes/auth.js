@@ -4,18 +4,21 @@ const bcrypt = require("bcryptjs");
 const { asyncHandler, conflict, unauthorized, badRequest, DuplicateError } = require("../errors");
 const { publicUser } = require("../auth/auth");
 const v = require("./validate");
+const { authLimiters } = require("../security");
 
 function authRoutes({ repo, auth, config }) {
   const router = express.Router();
   // e.g. ["st.knust.edu.gh"]. Empty means any email address is accepted.
   const domains = config.allowedEmailDomains || [];
   const idLabel = config.memberIdLabel || "Member ID";
+  // Stops password guessing and mass sign-ups (see security.js).
+  const limits = authLimiters(config);
 
   // Public sign-up always creates a voter. Admins are created with `npm run create-admin`.
   // One person, one account: the member ID (student ID, staff number...) is required and
   // must be unique, and the email can be limited to the institution's domain. The admin
   // still approves each registration.
-  router.post("/register", asyncHandler(async (req, res) => {
+  router.post("/register", limits.signup, asyncHandler(async (req, res) => {
     const fullName = v.text(req.body, "fullName", { max: 150 });
     const email = v.email(req.body);
     if (domains.length > 0 && !domains.some((d) => email.endsWith(`@${d}`))) {
@@ -38,7 +41,7 @@ function authRoutes({ repo, auth, config }) {
     }
   }));
 
-  router.post("/login", asyncHandler(async (req, res) => {
+  router.post("/login", limits.login, asyncHandler(async (req, res) => {
     const email = v.email(req.body);
     const password = String(req.body?.password ?? "");
     const user = await repo.findUserByEmail(email);

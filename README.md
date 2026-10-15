@@ -128,6 +128,31 @@ Results are saved in `evaluation/results/`. Summary of the runs on 12–13 Octob
 
 Voters pay nothing on either; the relayer pays. A double vote is refused before anything is sent.
 
+## Security
+
+| Threat | Protection |
+|---|---|
+| Changing the result | Votes are on the blockchain. The admin can only add voters or cancel an election *before* voting opens; nobody can edit or delete votes. Anyone can recount on the block explorer. |
+| Voting twice / voting without being registered | Each ballot needs a zero-knowledge proof of membership; the contract refuses a reused nullifier. |
+| A voter making themselves admin | Sign-up always creates a voter, whatever is sent. The role is read from the database on every request, not trusted from the login token. |
+| Forged login tokens | Tokens are signed with `JWT_SECRET`; the backend refuses to start if it's shorter than 32 characters. |
+| Guessing passwords | Login allows 5 wrong passwords per account and 100 per network every 15 minutes; sign-ups are limited per network per hour. Behind a hosting proxy, set `TRUST_PROXY=1`. |
+| Injected scripts, clickjacking | Strict browser headers on the API (helmet) and the website (`frontend/voting-frontend/security-headers.js`): no inline scripts or styles, no framing. |
+| Stolen keys | The deployer/admin and relayer private keys live only in `.env` files, never in Git. The deployer key owns the contract, so guard it most. |
+
+**OWASP ZAP 2.16.1** (spider, passive and active scan, logged in as admin) on 15 October 2026:
+before the fixes, 3 Medium and 3 Low alerts; after, **no High and no real Medium**. Reports are in
+`evaluation/security/`. What remains:
+
+- *Hidden File Found* (Medium, low confidence): a false positive. The website shows the home page
+  for any unknown address (normal for a single-page app), which ZAP mistakes for `/.hg` etc.
+- *XSS weakness in JSON* (Low): ZAP's test text comes back in JSON, but it's served as
+  `application/json` with `nosniff`, and React displays it as text, never as code.
+- *Timestamp disclosure* (Low) and informational notes: harmless.
+
+When hosting the built website (`dist/`), the host must send the same headers as
+`security-headers.js` (most hosts accept a headers file or setting).
+
 ## Gas (local Hardhat measurements)
 
 | Action | Gas (avg) |
@@ -147,4 +172,5 @@ verification is the main cost of privacy, which motivates Layer 2 deployment.
 - [x] Frontend: registration with in-browser voter keys and backup, ballot with in-browser proofs, admin screens, results, relay statistics
 - [x] Base Sepolia (L2) and Ethereum Sepolia deployments, verified source, gas/latency/cost evaluation
 - [x] Candidate photos; configurable for any institution (name, member ID label, email domains)
+- [x] Security hardening and OWASP ZAP scan (browser headers, login limits, secret checks)
 - [ ] Written report
