@@ -160,6 +160,64 @@ describe("Backend API", function () {
     });
   });
 
+  describe("Security", function () {
+    let ctx;
+    before(async () => (ctx = await setup()));
+
+    it("signing up with role: admin still makes a voter", async () => {
+      const res = await request(ctx.app).post("/api/auth/register").send({
+        fullName: "Sneaky", email: "sneaky@st.knust.edu.gh", memberId: "20269999", password: "password123", role: "admin",
+      });
+      expect(res.status).to.equal(201);
+      expect(res.body.user.role).to.equal("voter");
+    });
+
+    it("refuses forged login tokens (unsigned, or signed with the wrong secret)", async () => {
+      const part = (o) => Buffer.from(JSON.stringify(o)).toString("base64url");
+      const unsigned = `${part({ alg: "none", typ: "JWT" })}.${part({ sub: "1", role: "admin" })}.`;
+      const jwt = require("../../voting-backend/node_modules/jsonwebtoken");
+      const wrongSecret = jwt.sign({ sub: "1", role: "admin" }, "guessed-secret");
+      for (const token of [unsigned, wrongSecret]) {
+        expect((await request(ctx.app).get("/api/auth/me").set(as(token))).status).to.equal(401);
+      }
+    });
+
+    it("sends browser safety headers", async () => {
+      const res = await request(ctx.app).get("/api/health");
+      expect(res.headers["content-security-policy"]).to.include("default-src 'none'");
+      expect(res.headers["content-security-policy"]).to.include("frame-ancestors 'none'");
+      expect(res.headers["x-content-type-options"]).to.equal("nosniff");
+      expect(res.headers["x-frame-options"]).to.equal("SAMEORIGIN");
+      expect(res.headers["x-powered-by"]).to.equal(undefined);
+    });
+
+    it("stops password guessing after 5 wrong passwords, even with the right one", async () => {
+      const login = (password) => request(ctx.app).post("/api/auth/login").send({ email: "admin@knust.edu.gh", password });
+      for (let i = 0; i < 5; i++) expect((await login("wrong-guess")).status).to.equal(401);
+      const blocked = await login("admin-password");
+      expect(blocked.status).to.equal(429);
+      expect(blocked.body.code).to.equal("RATE_LIMITED");
+      // Other accounts on the same network can still log in.
+      await registerVoter(ctx.app, 7);
+      expect((await request(ctx.app).post("/api/auth/login").send({ email: "student7@st.knust.edu.gh", password: "password123" })).status).to.equal(200);
+    });
+
+    it("refuses to start with a short login-token secret", () => {
+      const { loadConfig } = require("../../voting-backend/src/config");
+      const saved = { ...process.env };
+      Object.assign(process.env, {
+        JWT_SECRET: "secret", DB_SERVER: "x", DB_NAME: "x", DB_USER: "x", DB_PASSWORD: "x", RPC_URL: "x", ADMIN_PRIVATE_KEY: "0x1",
+      });
+      try {
+        expect(() => loadConfig()).to.throw(/JWT_SECRET is too short/);
+        process.env.JWT_SECRET = "a".repeat(64);
+        expect(loadConfig().jwtSecret).to.have.length(64);
+      } finally {
+        process.env = saved;
+      }
+    });
+  });
+
   describe("Election drafts", function () {
     let ctx;
     before(async () => (ctx = await setup()));

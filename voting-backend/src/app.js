@@ -3,6 +3,7 @@
 const express = require("express");
 const cors = require("cors");
 const { errorHandler, notFound } = require("./errors");
+const { securityHeaders } = require("./security");
 const { createAuth } = require("./auth/auth");
 const { createElectionService } = require("./services/electionService");
 const { createRelayService } = require("./services/relayService");
@@ -25,6 +26,10 @@ function createApp({ repo, chain, config, clock = async () => new Date(), chainI
 
   const app = express();
   app.disable("x-powered-by");
+  // When hosted behind a proxy (most hosting services), this makes req.ip the visitor's
+  // real address instead of the proxy's, so rate limits count each visitor separately.
+  if (config.trustProxy) app.set("trust proxy", config.trustProxy);
+  app.use(securityHeaders());
   app.use(cors({ origin: config.corsOrigin }));
   // Photo uploads are bigger than other requests, so only their route gets a higher limit.
   app.use("/api/elections/:id/candidates/:candidateId/photo", express.json({ limit: "800kb" }));

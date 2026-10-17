@@ -7,6 +7,19 @@ function required(name) {
   return value;
 }
 
+// Anyone who knows the login-token secret can make themselves an admin token, so a short or
+// guessable one is refused. 32 characters is the minimum; the generator below gives 64.
+function strongSecret(name) {
+  const value = required(name);
+  if (value.length < 32) {
+    throw new Error(
+      `${name} is too short (${value.length} characters, need at least 32). Generate one with:\n` +
+        `  node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"`
+    );
+  }
+  return value;
+}
+
 // MetaMask exports private keys without the "0x" at the start; ethers needs it.
 const withHexPrefix = (key) => (key && !key.trim().startsWith("0x") ? `0x${key.trim()}` : key && key.trim());
 
@@ -14,7 +27,7 @@ function loadConfig() {
   return {
     port: Number(process.env.PORT || 5000),
     corsOrigin: process.env.CORS_ORIGIN || "http://localhost:3000",
-    jwtSecret: required("JWT_SECRET"),
+    jwtSecret: strongSecret("JWT_SECRET"),
     jwtExpiresIn: process.env.JWT_EXPIRES_IN || "8h",
 
     db: {
@@ -54,6 +67,12 @@ function loadConfig() {
     // Fewest registered voters an election can be published with (see electionService.publish).
     minVoters: Number(process.env.MIN_VOTERS ?? 3),
     relayRateLimitPerMinute: Number(process.env.RELAY_RATE_LIMIT_PER_MINUTE || 20),
+    // Password-guessing limits, per 15 minutes (see security.js).
+    loginAttemptsPerAccount: Number(process.env.LOGIN_ATTEMPTS_PER_ACCOUNT || 5),
+    loginAttemptsPerIp: Number(process.env.LOGIN_ATTEMPTS_PER_IP || 100),
+    signupsPerIpPerHour: Number(process.env.SIGNUPS_PER_IP_PER_HOUR || 50),
+    // Set when hosted behind a proxy, usually to 1 (the number of proxies in front). Empty locally.
+    trustProxy: process.env.TRUST_PROXY ? (/^\d+$/.test(process.env.TRUST_PROXY) ? Number(process.env.TRUST_PROXY) : process.env.TRUST_PROXY) : false,
   };
 }
 
