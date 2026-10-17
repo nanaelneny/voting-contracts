@@ -15,10 +15,10 @@ const SIZES = {
 };
 
 export default function Avatar({ name, photoUrl, size = "md", className = "" }) {
-  const box = `${SIZES[size]} shrink-0 overflow-hidden rounded-sm border border-ink/15 ${className}`;
-  if (photoUrl) return <img src={photoUrl} alt="" className={`${box} bg-paper object-cover`} loading="lazy" />;
+  const box = `${SIZES[size]} shrink-0 overflow-hidden rounded-full ${className}`;
+  if (photoUrl) return <img src={photoUrl} alt="" className={`${box} bg-fill object-cover ring-1 ring-ink/5`} loading="lazy" />;
   return (
-    <span className={`${box} grid place-items-center bg-violet-wash font-display font-bold text-violet-dark`} aria-hidden="true">
+    <span className={`${box} grid place-items-center bg-gradient-to-b from-[#a1a1a6] to-[#86868b] font-semibold tracking-wide text-white`} aria-hidden="true">
       {initials(name)}
     </span>
   );

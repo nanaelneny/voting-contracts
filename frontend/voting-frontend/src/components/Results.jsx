@@ -28,7 +28,7 @@ export default function Results({ electionId, refreshMs = 0 }) {
     <section aria-labelledby="results-heading">
       <div className="flex flex-wrap items-baseline justify-between gap-2">
         <h2 id="results-heading">{finalized ? "Final result" : data.phase === "voting" ? "Live count" : "Count"}</h2>
-        <p className="text-sm text-muted">
+        <p className="text-sm text-muted tabular-nums">
           {data.totalVotes} of {data.voterCount} registered voters
           {data.turnout !== null && ` (${data.turnout}% turnout)`}
         </p>
@@ -54,7 +54,7 @@ export default function Results({ electionId, refreshMs = 0 }) {
         </div>
       )}
 
-      <ol className="mt-4 space-y-3">
+      <ol className="mt-5 space-y-4">
         {data.candidates.map((c, i) => {
           const won = finalized && winners.has(c.id);
           return (
@@ -63,14 +63,14 @@ export default function Results({ electionId, refreshMs = 0 }) {
                 <Avatar name={c.name} photoUrl={c.photoUrl} size="sm" />
                 <span className="min-w-0 flex-1 font-semibold">
                   {c.name}
-                  {won && <span className="ml-2 rounded-sm bg-violet px-1.5 py-0.5 text-xs font-semibold text-white">{data.tie ? "Tied" : "Elected"}</span>}
+                  {won && <span className="ml-2 rounded-full bg-accent px-2 py-0.5 text-xs font-medium text-white">{data.tie ? "Tied" : "Elected"}</span>}
                   {c.party && <span className="block text-xs font-normal text-muted">{c.party}</span>}
                 </span>
-                <span className="font-display text-base font-bold">{c.votes}</span>
+                <span className="text-lg font-semibold tabular-nums tracking-tight">{c.votes}</span>
               </div>
-              <div className="mt-1 h-2.5 rounded-full bg-paper" aria-hidden="true">
+              <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-fill" aria-hidden="true">
                 <div
-                  className={`h-full rounded-full ${won ? "bg-violet" : "bg-ink/70"}`}
+                  className={`animate-grow h-full rounded-full ${won ? "bg-accent" : "bg-ink/60"}`}
                   style={{ width: `${(c.votes / max) * 100}%` }}
                 />
               </div>

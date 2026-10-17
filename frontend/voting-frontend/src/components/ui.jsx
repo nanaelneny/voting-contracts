@@ -23,19 +23,37 @@ export function useLoad(load, deps) {
 }
 
 const TONES = {
-  info: "border-rule bg-sheet text-ink",
-  good: "border-good/30 bg-good-wash text-good",
-  warn: "border-warn/30 bg-warn-wash text-warn",
-  bad: "border-bad/30 bg-bad-wash text-bad",
-  violet: "border-violet/25 bg-violet-wash text-violet-dark",
+  info: "bg-sheet text-ink shadow-soft",
+  good: "bg-good-wash text-good",
+  warn: "bg-warn-wash text-warn",
+  bad: "bg-bad-wash text-bad",
+  accent: "bg-accent-wash text-ink",
 };
 
 export function Notice({ tone = "info", title, children, className = "" }) {
   return (
-    <div role={tone === "bad" ? "alert" : "status"} className={`rounded-md border px-4 py-3 text-sm ${TONES[tone]} ${className}`}>
+    <div role={tone === "bad" ? "alert" : "status"} className={`rounded-2xl px-4 py-3.5 text-[0.9375rem] ${TONES[tone]} ${className}`}>
       {title && <p className="font-semibold">{title}</p>}
-      {children && <div className={title ? "mt-1" : ""}>{children}</div>}
+      {children && <div className={title ? "mt-1 opacity-90" : ""}>{children}</div>}
     </div>
+  );
+}
+
+/** A small right-pointing chevron, for rows that open another page. */
+export function Chevron({ className = "" }) {
+  return (
+    <svg viewBox="0 0 8 14" className={`h-3.5 w-2 shrink-0 ${className}`} aria-hidden="true">
+      <path d="M1.5 1.5 6.5 7l-5 5.5" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  );
+}
+
+/** A check mark, drawn rather than typed, so it looks the same on every device. */
+export function Check({ className = "" }) {
+  return (
+    <svg viewBox="0 0 16 16" className={className} aria-hidden="true">
+      <path d="m3.5 8.5 3 3 6-7" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
   );
 }
 
@@ -47,7 +65,7 @@ export function ErrorNotice({ error, className }) {
 export function Spinner({ label = "Loading" }) {
   return (
     <span className="inline-flex items-center gap-2 text-sm text-muted" role="status">
-      <span className="size-4 animate-spin rounded-full border-2 border-rule border-t-violet motion-reduce:animate-none" aria-hidden="true" />
+      <span className="size-4 animate-spin rounded-full border-2 border-rule border-t-accent motion-reduce:animate-none" aria-hidden="true" />
       {label}
     </span>
   );
@@ -62,19 +80,21 @@ export function PageLoading() {
 }
 
 // What each election status means, in words for voters and for admins.
+// The dot carries the same meaning as the text, so colour is never the only signal.
 const STATUS = {
-  draft: { voter: "Registration open", admin: "Draft", tone: "text-violet-dark bg-violet-wash" },
-  publishing: { voter: "Registration open", admin: "Publishing incomplete", tone: "text-warn bg-warn-wash" },
-  upcoming: { voter: "Voting opens soon", admin: "Published", tone: "text-ink bg-paper border border-rule" },
-  open: { voter: "Voting open", admin: "Voting open", tone: "text-white bg-good" },
-  closed: { voter: "Closed", admin: "Closed", tone: "text-muted bg-paper border border-rule" },
-  cancelled: { voter: "Cancelled", admin: "Cancelled", tone: "text-bad bg-bad-wash" },
+  draft: { voter: "Registration open", admin: "Draft", tone: "text-accent-dark bg-accent-wash", dot: "bg-accent" },
+  publishing: { voter: "Registration open", admin: "Publishing incomplete", tone: "text-warn bg-warn-wash", dot: "bg-warn" },
+  upcoming: { voter: "Voting opens soon", admin: "Published", tone: "text-ink bg-fill", dot: "bg-muted" },
+  open: { voter: "Voting open", admin: "Voting open", tone: "text-good bg-good-wash", dot: "bg-good animate-pulse motion-reduce:animate-none" },
+  closed: { voter: "Closed", admin: "Closed", tone: "text-muted bg-fill", dot: "bg-muted/60" },
+  cancelled: { voter: "Cancelled", admin: "Cancelled", tone: "text-bad bg-bad-wash", dot: "bg-bad" },
 };
 
 export function StatusTag({ status, admin = false }) {
-  const s = STATUS[status] || { voter: status, admin: status, tone: "bg-paper" };
+  const s = STATUS[status] || { voter: status, admin: status, tone: "bg-fill", dot: "bg-muted" };
   return (
-    <span className={`inline-block whitespace-nowrap rounded px-2 py-0.5 text-xs font-semibold ${s.tone}`}>
+    <span className={`inline-flex items-center gap-1.5 whitespace-nowrap rounded-full px-2.5 py-1 text-xs font-medium ${s.tone}`}>
+      <span className={`size-1.5 rounded-full ${s.dot}`} aria-hidden="true" />
       {admin ? s.admin : s.voter}
     </span>
   );
@@ -126,25 +146,19 @@ export function PhaseTrack({ election }) {
   };
 
   return (
-    <ol className="grid grid-cols-3 gap-2" aria-label="Election progress">
+    <ol className="grid grid-cols-3 gap-3" aria-label="Election progress">
       {steps.map((s, i) => {
         const state = stateOf(i);
         return (
           <li key={s.label} className="relative" aria-current={state === "now" ? "step" : undefined}>
-            <div className="flex items-center">
-              <span
-                className={`grid size-7 shrink-0 place-items-center rounded-full border-2 font-display text-xs font-bold ${
-                  state === "done" ? "border-ink bg-ink text-white"
-                  : state === "now" ? "border-violet bg-violet text-white"
-                  : state === "next" ? "border-violet bg-sheet text-violet"
-                  : "border-rule bg-sheet text-muted"
-                }`}
-              >
-                {i + 1}
-              </span>
-              {i < steps.length - 1 && <span className={`mx-2 h-0.5 flex-1 ${i < current ? "bg-ink" : "bg-rule"}`} aria-hidden="true" />}
-            </div>
-            <p className={`mt-2 text-sm font-semibold ${state === "later" ? "text-muted" : ""}`}>
+            <span
+              className={`block h-1 rounded-full ${
+                state === "done" ? "bg-ink/80" : state === "now" ? "bg-accent" : state === "next" ? "bg-accent/30" : "bg-rule"
+              }`}
+              aria-hidden="true"
+            />
+            <p className={`mt-3 text-sm font-semibold ${state === "later" ? "text-muted" : ""}`}>
+              <span className="mr-1.5 text-muted tabular-nums">{i + 1}</span>
               {s.label}
               {state === "now" && <span className="sr-only"> (current step)</span>}
             </p>

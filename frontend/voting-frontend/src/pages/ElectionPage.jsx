@@ -7,7 +7,7 @@ import { backupFile, createIdentity, importBackup, loadIdentity, loadReceipt, sa
 import Results from "../components/Results";
 import Avatar from "../components/Avatar";
 import Thumbprint from "../components/Thumbprint";
-import { ErrorNotice, Notice, PageLoading, PhaseTrack, Spinner, StatusTag, useAction, useLoad } from "../components/ui";
+import { Check, ErrorNotice, Notice, PageLoading, PhaseTrack, Spinner, StatusTag, useAction, useLoad } from "../components/ui";
 
 const PUBLISHED = ["upcoming", "open", "closed"];
 
@@ -28,17 +28,15 @@ export default function ElectionPage() {
 
   return (
     <div>
-      <Link to="/" className="text-sm font-semibold text-muted hover:text-ink">All elections</Link>
-      <header className="mt-3 border-b border-rule pb-6">
-        <div className="flex flex-wrap items-start justify-between gap-3">
-          <h1 className="max-w-2xl">{election.title}</h1>
-          <StatusTag status={election.status} />
-        </div>
-        {election.description && <p className="mt-3 max-w-prose text-muted">{election.description}</p>}
-        <p className="mt-3 text-sm">
-          <span className="font-semibold">Voting:</span> {formatWindow(election.startTime, election.endTime)}
+      <Link to="/" className="back-link">All elections</Link>
+      <header className="mt-4">
+        <StatusTag status={election.status} />
+        <h1 className="mt-3 max-w-2xl">{election.title}</h1>
+        {election.description && <p className="mt-3 max-w-prose text-lg text-muted">{election.description}</p>}
+        <p className="mt-3 text-[0.9375rem]">
+          <span className="text-muted">Voting</span> {formatWindow(election.startTime, election.endTime)}
         </p>
-        <div className="mt-6 max-w-xl">
+        <div className="mt-8 max-w-xl">
           <PhaseTrack election={election} />
         </div>
         {user?.role === "admin" && (
@@ -46,12 +44,12 @@ export default function ElectionPage() {
         )}
       </header>
 
-      <div className="mt-8 grid gap-10 lg:grid-cols-[minmax(0,1fr)_20rem]">
+      <div className="mt-12 grid gap-10 lg:grid-cols-[minmax(0,1fr)_20rem] lg:gap-14">
         <div>
           {election.status === "cancelled" ? (
             <Notice title="This election was cancelled." />
           ) : !user ? (
-            <Notice tone="violet">
+            <Notice tone="accent">
               <Link to="/login" state={{ from: location.pathname }} className="btn-link">Log in</Link> or{" "}
               <Link to="/register" className="btn-link">create an account</Link> to register and vote.
             </Notice>
@@ -70,7 +68,7 @@ export default function ElectionPage() {
 
         <aside className="space-y-8">
           {PUBLISHED.includes(election.status) ? (
-            <div className="panel p-5">
+            <div className="panel p-6">
               <Results electionId={electionId} refreshMs={election.status === "open" ? 10_000 : 0} />
             </div>
           ) : (
@@ -89,12 +87,12 @@ function CandidateList({ candidates }) {
       {candidates.length === 0 ? (
         <p className="mt-2 text-sm text-muted">Candidates haven't been announced yet.</p>
       ) : (
-        <ul className="mt-4 space-y-3">
+        <ul className="group-list mt-4">
           {candidates.map((c) => (
-            <li key={c.id} className="flex items-center gap-3">
-              <Avatar name={c.name} photoUrl={c.photoUrl} size="lg" />
+            <li key={c.id} className="flex items-center gap-3 px-4 py-3">
+              <Avatar name={c.name} photoUrl={c.photoUrl} size="md" />
               <span className="min-w-0">
-                <span className="block font-display font-bold leading-tight [font-stretch:108%]">{c.name}</span>
+                <span className="block font-semibold leading-tight tracking-tight">{c.name}</span>
                 {c.party && <span className="block text-sm text-muted">{c.party}</span>}
               </span>
             </li>
@@ -190,7 +188,7 @@ function RegistrationSection({ election, registration, user, onChange }) {
 
       {keyMatches ? (
         registration.status !== "rejected" && (
-          <div className="panel p-5">
+          <div className="panel p-6">
             <h3>Back up your voter key</h3>
             <p className="mt-1 text-sm text-muted">Needed to vote from another device. Keep it private.</p>
             <button type="button" className="btn-secondary mt-4" onClick={() => downloadBackup(identity, election)}>
@@ -199,7 +197,7 @@ function RegistrationSection({ election, registration, user, onChange }) {
           </div>
         )
       ) : (
-        <div className="panel space-y-4 p-5">
+        <div className="panel space-y-4 p-6">
           <Notice tone="warn" title="This browser doesn't have your voter key." />
           <RestoreBackup election={election} user={user} registration={registration} onRestored={setIdentity} />
           {!registration.onChain && registrationOpen && (
@@ -321,33 +319,33 @@ function BallotPaper({ election, candidates, identity, onCast }) {
       <div className="relative max-w-xl" style={{ perspective: "800px" }}>
         {/* The envelope the ballot drops into once it's sealed */}
         {sealed && (
-          <div className="absolute inset-x-6 top-10 -z-0 h-40 rounded-md border-2 border-ink bg-violet-wash" aria-hidden="true">
-            <div className="animate-flap h-16 rounded-t-md border-b-2 border-ink bg-violet-wash" />
+          <div className="absolute inset-x-8 top-10 -z-0 h-40 rounded-2xl bg-accent-wash shadow-soft ring-1 ring-accent/20" aria-hidden="true">
+            <div className="animate-flap h-16 rounded-t-2xl border-b border-accent/25 bg-accent-wash" />
           </div>
         )}
 
         <form
-          className={`relative border-2 border-ink bg-sheet shadow-[6px_6px_0_var(--color-rule)] ${sealed ? "animate-seal" : ""}`}
+          className={`relative overflow-hidden rounded-[1.25rem] bg-sheet shadow-lift ring-1 ring-ink/5 ${sealed ? "animate-seal" : ""}`}
           onSubmit={(e) => {
             e.preventDefault();
             if (choice !== null) setConfirming(true);
           }}
         >
-          <div className="border-b-2 border-ink px-5 py-4">
-            <h2 id="ballot-heading" className="text-lg">Ballot paper</h2>
-            <p className="text-sm text-muted">{election.title}</p>
+          <div className="border-b border-ink/15 px-6 pb-4 pt-5">
+            <p className="text-xs font-medium text-muted">Ballot paper</p>
+            <h2 id="ballot-heading" className="mt-0.5 text-xl">{election.title}</h2>
           </div>
 
-          <fieldset disabled={working || confirming} className="px-5 py-4">
+          <fieldset disabled={working || confirming}>
             <legend className="sr-only">Choose one candidate</legend>
-            <p className="mb-3 text-sm font-semibold">Thumbprint the box beside one candidate.</p>
-            <div className="border-2 border-ink">
+            <p className="px-6 pb-2 pt-4 text-sm text-muted">Thumbprint the box beside one candidate.</p>
+            <div>
               {candidates.map((c, i) => {
                 const selected = choice === c.chainIndex;
                 return (
                   <label
                     key={c.id}
-                    className={`flex cursor-pointer items-stretch ${i > 0 ? "border-t-2 border-ink" : ""} ${selected ? "bg-violet-wash/50" : "hover:bg-paper"}`}
+                    className={`flex cursor-pointer items-stretch border-t border-ink/15 transition-colors duration-200 first:border-t-0 motion-reduce:transition-none ${selected ? "bg-accent-wash/60" : "hover:bg-paper/70"}`}
                   >
                     <input
                       type="radio"
@@ -357,18 +355,20 @@ function BallotPaper({ election, candidates, identity, onCast }) {
                       onChange={() => setChoice(c.chainIndex)}
                       className="peer sr-only"
                     />
-                    <span className="grid w-9 shrink-0 place-items-center border-r-2 border-ink font-display text-sm font-bold" aria-hidden="true">
+                    <span className="grid w-12 shrink-0 place-items-center text-sm font-medium text-muted tabular-nums" aria-hidden="true">
                       {i + 1}
                     </span>
-                    <span className="flex min-w-0 flex-1 items-center gap-3 px-3 py-3">
+                    <span className="flex min-w-0 flex-1 items-center gap-3.5 py-4">
                       <Avatar name={c.name} photoUrl={c.photoUrl} size="lg" />
                       <span className="min-w-0">
-                        <span className="block font-display text-lg font-bold leading-tight [font-stretch:108%]">{c.name}</span>
-                        {c.party && <span className="block text-sm text-muted">{c.party}</span>}
+                        <span className="block text-lg font-semibold leading-tight tracking-tight">{c.name}</span>
+                        {c.party && <span className="mt-0.5 block text-sm text-muted">{c.party}</span>}
                       </span>
                     </span>
                     <span
-                      className="grid w-16 shrink-0 place-items-center border-l-2 border-ink bg-sheet text-violet peer-focus-visible:outline peer-focus-visible:outline-3 peer-focus-visible:-outline-offset-4 peer-focus-visible:outline-violet sm:w-24"
+                      className={`my-3 mr-4 grid w-16 shrink-0 place-items-center rounded-xl border bg-sheet text-accent transition-colors duration-200 peer-focus-visible:outline peer-focus-visible:outline-3 peer-focus-visible:outline-offset-2 peer-focus-visible:outline-accent/55 motion-reduce:transition-none sm:w-20 ${
+                        selected ? "border-accent/40" : "border-ink/20"
+                      }`}
                       aria-hidden="true"
                     >
                       {selected && <Thumbprint className="animate-press h-14 w-12 -rotate-6" />}
@@ -379,7 +379,7 @@ function BallotPaper({ election, candidates, identity, onCast }) {
             </div>
           </fieldset>
 
-          <div className="border-t-2 border-ink px-5 py-4">
+          <div className="border-t border-ink/15 bg-paper/60 px-6 py-5">
             {!confirming ? (
               <button type="submit" className="btn-primary w-full sm:w-auto" disabled={choice === null}>
                 Cast ballot
@@ -388,24 +388,27 @@ function BallotPaper({ election, candidates, identity, onCast }) {
               <div>
                 <p className="font-semibold">You're voting for {chosen?.name}.</p>
                 <p className="text-sm text-muted">A ballot can't be changed once it's cast.</p>
-                <div className="mt-3 flex flex-wrap gap-2">
+                <div className="mt-4 flex flex-wrap gap-2">
                   <button type="button" className="btn-primary" onClick={cast}>Confirm and cast</button>
                   <button type="button" className="btn-secondary" onClick={() => setConfirming(false)}>Change my choice</button>
                 </div>
               </div>
             ) : (
-              <ol className="space-y-2 text-sm" aria-live="polite">
+              <ol className="space-y-2.5 text-sm" aria-live="polite">
                 {STEPS.map((s, i) => {
                   const current = STEPS.findIndex((x) => x.key === step);
                   const state = i < current ? "done" : i === current ? "active" : "todo";
                   return (
-                    <li key={s.key} className={`flex items-center gap-2 ${state === "todo" ? "text-muted" : ""}`}>
+                    <li key={s.key} className={`flex items-center gap-2.5 ${state === "todo" ? "text-muted" : ""}`}>
                       {state === "done" ? (
-                        <span className="text-good" aria-label="done">✓</span>
+                        <span className="grid size-4 place-items-center rounded-full bg-good text-white">
+                          <Check className="size-3" />
+                          <span className="sr-only">Done:</span>
+                        </span>
                       ) : state === "active" ? (
-                        <span className="size-3.5 animate-spin rounded-full border-2 border-rule border-t-violet motion-reduce:animate-none" aria-hidden="true" />
+                        <span className="size-4 animate-spin rounded-full border-2 border-rule border-t-accent motion-reduce:animate-none" aria-hidden="true" />
                       ) : (
-                        <span className="size-3.5 rounded-full border-2 border-rule" aria-hidden="true" />
+                        <span className="size-4 rounded-full border-2 border-rule" aria-hidden="true" />
                       )}
                       {s.label}
                     </li>
