@@ -2,7 +2,7 @@ import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { api } from "../../lib/api";
 import { formatWindow, toLocalInput } from "../../lib/format";
-import { ErrorNotice, PageLoading, StatusTag, useAction, useLoad } from "../../components/ui";
+import { Chevron, ErrorNotice, PageLoading, StatusTag, useAction, useLoad } from "../../components/ui";
 
 export function AdminHome() {
   const { data, error, loading } = useLoad(() => api.listElections(), []);
@@ -22,15 +22,17 @@ export function AdminHome() {
       {data.elections.length === 0 ? (
         <p className="mt-10 text-muted">No elections yet.</p>
       ) : (
-        <ul className="mt-8 divide-y divide-rule border-y border-rule">
+        <ul className="group-list mt-8">
           {data.elections.map((e) => (
             <li key={e.id}>
-              <Link to={`/admin/elections/${e.id}`} className="group flex flex-wrap items-center gap-x-4 gap-y-1 py-4 hover:bg-sheet sm:px-3">
+              <Link to={`/admin/elections/${e.id}`} className="group flex items-center gap-4 px-5 py-4 transition-colors hover:bg-paper/70 focus-visible:-outline-offset-4">
                 <span className="min-w-0 flex-1">
-                  <span className="block font-semibold group-hover:text-violet">{e.title}</span>
-                  <span className="block text-sm text-muted">{formatWindow(e.startTime, e.endTime)}</span>
+                  <span className="mb-1.5 block sm:hidden"><StatusTag status={e.status} admin /></span>
+                  <span className="block font-semibold tracking-tight">{e.title}</span>
+                  <span className="mt-0.5 block text-sm text-muted">{formatWindow(e.startTime, e.endTime)}</span>
                 </span>
-                <StatusTag status={e.status} admin />
+                <span className="hidden sm:block"><StatusTag status={e.status} admin /></span>
+                <Chevron className="text-muted/50" />
               </Link>
             </li>
           ))}
@@ -94,9 +96,9 @@ export function NewElection() {
   const { busy, error, run } = useAction();
   return (
     <div className="max-w-2xl">
-      <Link to="/admin" className="text-sm font-semibold text-muted hover:text-ink">All elections</Link>
-      <h1 className="mt-3">New election</h1>
-      <div className="panel mt-6 p-6">
+      <Link to="/admin" className="back-link">All elections</Link>
+      <h1 className="mt-4">New election</h1>
+      <div className="panel mt-8 p-6 sm:p-7">
         <ElectionForm
           submitLabel="Create draft"
           busy={busy}
@@ -122,32 +124,33 @@ export function RelayStats() {
 
   return (
     <div>
-      <Link to="/admin" className="text-sm font-semibold text-muted hover:text-ink">All elections</Link>
-      <h1 className="mt-3">Relay statistics</h1>
+      <Link to="/admin" className="back-link">All elections</Link>
+      <h1 className="mt-4">Relay statistics</h1>
+      <p className="mt-2 max-w-prose text-muted">Transactions the server has paid gas for on voters' behalf.</p>
       {rows.length === 0 ? (
         <p className="mt-8 text-muted">Nothing has been relayed yet.</p>
       ) : (
-        <div className="mt-6 overflow-x-auto">
-          <table className="w-full min-w-[36rem] border-y border-rule text-left text-sm">
+        <div className="panel mt-8 overflow-x-auto px-5 py-2">
+          <table className="w-full min-w-[36rem] text-left text-sm tabular-nums">
             <thead className="border-b border-rule text-muted">
               <tr>
-                <th className="py-2 pr-4 font-semibold">Type</th>
-                <th className="py-2 pr-4 text-right font-semibold">Accepted</th>
-                <th className="py-2 pr-4 text-right font-semibold">Rejected</th>
-                <th className="py-2 pr-4 text-right font-semibold">Failed</th>
-                <th className="py-2 pr-4 text-right font-semibold">Average gas</th>
-                <th className="py-2 text-right font-semibold">Average latency</th>
+                <th className="py-3 pr-4 font-medium">Type</th>
+                <th className="py-3 pr-4 text-right font-medium">Accepted</th>
+                <th className="py-3 pr-4 text-right font-medium">Rejected</th>
+                <th className="py-3 pr-4 text-right font-medium">Failed</th>
+                <th className="py-3 pr-4 text-right font-medium">Average gas</th>
+                <th className="py-3 text-right font-medium">Average latency</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-rule">
               {rows.map(([kind, s]) => (
                 <tr key={kind}>
-                  <td className="py-2.5 pr-4 font-semibold">{LABELS[kind] ?? kind}</td>
-                  <td className="py-2.5 pr-4 text-right">{s.success}</td>
-                  <td className="py-2.5 pr-4 text-right">{s.rejected}</td>
-                  <td className="py-2.5 pr-4 text-right">{s.failed}</td>
-                  <td className="py-2.5 pr-4 text-right">{s.avgGasUsed?.toLocaleString() ?? "–"}</td>
-                  <td className="py-2.5 text-right">{s.avgLatencyMs != null ? `${s.avgLatencyMs.toLocaleString()} ms` : "–"}</td>
+                  <td className="py-3.5 pr-4 font-semibold">{LABELS[kind] ?? kind}</td>
+                  <td className="py-3.5 pr-4 text-right">{s.success}</td>
+                  <td className="py-3.5 pr-4 text-right">{s.rejected}</td>
+                  <td className="py-3.5 pr-4 text-right">{s.failed}</td>
+                  <td className="py-3.5 pr-4 text-right">{s.avgGasUsed?.toLocaleString() ?? "–"}</td>
+                  <td className="py-3.5 text-right">{s.avgLatencyMs != null ? `${s.avgLatencyMs.toLocaleString()} ms` : "–"}</td>
                 </tr>
               ))}
             </tbody>

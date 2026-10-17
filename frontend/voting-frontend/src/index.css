@@ -1,43 +1,44 @@
-@import "@fontsource/public-sans/400.css";
-@import "@fontsource/public-sans/500.css";
-@import "@fontsource/public-sans/600.css";
-@import "@fontsource/public-sans/800.css";
-@import "@fontsource-variable/archivo/wdth.css";
 @import "tailwindcss";
 
 /*
   Secret Ballot design tokens
-  Taken from a Ghanaian polling station: the printed ballot, its ink, and the violet
-  indelible ink voters press their thumb into.
 
-  paper  #EEF1F5  cool ballot paper
-  sheet  #FFFFFF  the ballot itself
-  ink    #172036  printing ink (text, rules)
-  muted  #586379  secondary text
-  rule   #D3D9E3  lines
-  violet #5A2D91  indelible ink: the thumbprint, and the one accent
+  A calm, neutral base with one accent colour. The accent is the blue of a stamp pad:
+  the ink voters press their thumb into, so the thumbprint and the accent are the same colour.
 
-  Type: Archivo, widened, for headings and candidate names (like a printed ballot);
-  Public Sans for everything else.
+  paper   #F5F5F7  page background
+  sheet   #FFFFFF  surfaces: panels, lists, the ballot
+  ink     #1D1D1F  text
+  muted   #6E6E73  secondary text
+  rule    #E3E3E8  hairlines and borders
+  accent  #0A5BD3  stamp-pad ink: buttons, links, the thumbprint
+
+  Type: the device's own system font (San Francisco on Apple devices, Segoe UI on
+  Windows, Roboto on Android). Nothing to download.
 */
 @theme {
-  --font-sans: "Public Sans", ui-sans-serif, system-ui, sans-serif;
-  --font-display: "Archivo Variable", "Public Sans", ui-sans-serif, sans-serif;
+  --font-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif,
+    "Apple Color Emoji", "Segoe UI Emoji";
 
-  --color-paper: #eef1f5;
+  --color-paper: #f5f5f7;
   --color-sheet: #ffffff;
-  --color-ink: #172036;
-  --color-muted: #586379;
-  --color-rule: #d3d9e3;
-  --color-violet: #5a2d91;
-  --color-violet-dark: #431f6e;
-  --color-violet-wash: #f0e9f8;
-  --color-good: #1e7347;
-  --color-good-wash: #e5f3eb;
-  --color-warn: #8a5a0a;
-  --color-warn-wash: #fbf1dc;
-  --color-bad: #a8261b;
-  --color-bad-wash: #fbe8e6;
+  --color-ink: #1d1d1f;
+  --color-muted: #6e6e73;
+  --color-rule: #e3e3e8;
+  --color-fill: #ebebf0; /* grey buttons, empty bars */
+  --color-accent: #0a5bd3;
+  --color-accent-dark: #0848a8;
+  --color-accent-wash: #eaf1fc;
+  --color-good: #1d7a4c;
+  --color-good-wash: #e7f4ec;
+  --color-warn: #8f5600;
+  --color-warn-wash: #fcf2e1;
+  --color-bad: #c0352b;
+  --color-bad-wash: #fdeceb;
+
+  --shadow-soft: 0 1px 2px rgb(0 0 0 / 0.04), 0 6px 24px rgb(0 0 0 / 0.05);
+  --shadow-lift: 0 2px 6px rgb(0 0 0 / 0.05), 0 18px 48px rgb(0 0 0 / 0.08);
+  --ease-out-soft: cubic-bezier(0.22, 1, 0.36, 1);
 }
 
 @layer base {
@@ -46,67 +47,103 @@
     color: var(--color-ink);
     font-feature-settings: "tnum" 1;
     -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    text-rendering: optimizeLegibility;
   }
   body {
     min-height: 100vh;
+    line-height: 1.5;
   }
   :focus-visible {
-    outline: 3px solid var(--color-violet);
+    outline: 3px solid color-mix(in srgb, var(--color-accent) 55%, transparent);
     outline-offset: 2px;
-    border-radius: 2px;
-  }
-  h1,
-  h2 {
-    font-family: var(--font-display);
-    font-stretch: 112%;
+    border-radius: 6px;
   }
   h1 {
-    font-size: 2rem;
-    line-height: 1.12;
-    font-weight: 750;
-    letter-spacing: -0.015em;
+    font-size: 2.25rem;
+    line-height: 1.1;
+    font-weight: 700;
+    letter-spacing: -0.022em;
   }
   h2 {
-    font-size: 1.25rem;
-    line-height: 1.3;
-    font-weight: 700;
+    font-size: 1.375rem;
+    line-height: 1.25;
+    font-weight: 650;
+    letter-spacing: -0.012em;
   }
   h3 {
-    font-size: 1rem;
+    font-size: 1.0625rem;
     font-weight: 600;
+    letter-spacing: -0.005em;
+  }
+  ::selection {
+    background: var(--color-accent-wash);
   }
 }
 
+/* Buttons: pill shaped. Primary is filled with the accent; secondary is a soft grey fill. */
 @utility btn {
-  @apply inline-flex items-center justify-center gap-2 rounded-md px-4 py-2.5 text-sm font-semibold transition-colors disabled:cursor-not-allowed disabled:opacity-50;
+  @apply inline-flex items-center justify-center gap-2 rounded-full px-5 py-2.5 text-[0.9375rem] font-medium transition-[background-color,color,transform] duration-200 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-40 disabled:active:scale-100 motion-reduce:transition-none motion-reduce:active:scale-100;
 }
 
 @utility btn-primary {
-  @apply btn bg-violet text-white hover:bg-violet-dark;
+  @apply btn bg-accent text-white hover:bg-accent-dark;
 }
 
 @utility btn-secondary {
-  @apply btn border border-rule bg-sheet text-ink hover:border-ink;
+  @apply btn bg-fill text-ink hover:bg-rule;
 }
 
 @utility btn-danger {
-  @apply btn border border-bad/40 bg-sheet text-bad hover:bg-bad-wash;
+  @apply btn bg-bad-wash text-bad hover:bg-bad hover:text-white;
 }
 
 @utility btn-link {
-  @apply font-semibold text-violet underline decoration-violet/30 underline-offset-4 hover:decoration-violet;
+  @apply font-medium text-accent underline-offset-4 hover:underline;
 }
 
 @utility field {
-  @apply block w-full rounded-md border border-rule bg-sheet px-3 py-2.5 text-ink placeholder:text-muted/70 focus:border-violet focus:outline-none focus:ring-2 focus:ring-violet/25;
+  @apply block w-full rounded-xl border border-rule bg-sheet px-3.5 py-2.5 text-ink transition-[border-color,box-shadow] duration-200 placeholder:text-muted/70 focus:border-accent focus:ring-4 focus:ring-accent/15 focus:outline-none motion-reduce:transition-none;
 }
 
 @utility label {
-  @apply mb-1.5 block text-sm font-semibold;
+  @apply mb-1.5 block text-sm font-medium;
 }
 
+/* A white surface for forms and grouped content. */
 @utility panel {
-  @apply rounded-lg border border-rule bg-sheet;
+  @apply rounded-2xl bg-sheet shadow-soft;
+}
+
+/* An inset grouped list: one surface, rows divided by hairlines. */
+@utility group-list {
+  @apply divide-y divide-rule overflow-hidden rounded-2xl bg-sheet shadow-soft;
+}
+
+/* Small grey link back to a parent page. */
+@utility back-link {
+  @apply inline-flex items-center gap-1 text-[0.9375rem] font-medium text-accent hover:underline underline-offset-4;
+}
+
+/* The header's frosted glass. Falls back to solid white where blur isn't supported. */
+.frosted {
+  background: rgb(255 255 255 / 0.96);
+}
+@supports ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+  .frosted {
+    background: rgb(255 255 255 / 0.72);
+    -webkit-backdrop-filter: saturate(180%) blur(20px);
+    backdrop-filter: saturate(180%) blur(20px);
+  }
+}
+
+/* Pages ease in once, gently, when you move between them. */
+@keyframes page-in {
+  from { opacity: 0; transform: translateY(6px); }
+  to { opacity: 1; transform: none; }
+}
+.animate-page {
+  animation: page-in 380ms var(--ease-out-soft) both;
 }
 
 /* The sealing moment: the ballot folds into its envelope once the proof is accepted. */
@@ -127,24 +164,33 @@
   animation: flap 450ms 650ms ease-in forwards;
   transform-origin: top center;
 }
-@media (prefers-reduced-motion: reduce) {
-  .animate-seal,
-  .animate-flap {
-    animation: none;
-  }
-}
 
 /* The thumb pressing into the box: a quick squash, then the print settles. */
 @keyframes press {
-  0% { transform: scale(1.35); opacity: 0; }
-  55% { transform: scale(0.92); opacity: 1; }
+  0% { transform: scale(1.3); opacity: 0; }
+  55% { transform: scale(0.94); opacity: 1; }
   100% { transform: scale(1); opacity: 1; }
 }
 .animate-press {
-  animation: press 260ms cubic-bezier(0.3, 0, 0.2, 1) both;
+  animation: press 280ms var(--ease-out-soft) both;
 }
+
+/* Result bars grow to their length when the count loads. */
+@keyframes grow {
+  from { transform: scaleX(0); }
+  to { transform: scaleX(1); }
+}
+.animate-grow {
+  animation: grow 700ms var(--ease-out-soft) both;
+  transform-origin: left center;
+}
+
 @media (prefers-reduced-motion: reduce) {
-  .animate-press {
+  .animate-page,
+  .animate-seal,
+  .animate-flap,
+  .animate-press,
+  .animate-grow {
     animation: none;
   }
 }

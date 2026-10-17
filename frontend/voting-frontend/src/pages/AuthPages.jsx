@@ -7,11 +7,11 @@ import { ErrorNotice, useAction } from "../components/ui";
 
 function AuthShell({ title, intro, children, footer }) {
   return (
-    <div className="mx-auto max-w-sm">
-      <h1>{title}</h1>
-      {intro && <p className="mt-2 text-muted">{intro}</p>}
-      <div className="panel mt-6 p-6">{children}</div>
-      <p className="mt-4 text-center text-sm text-muted">{footer}</p>
+    <div className="mx-auto max-w-sm pt-2 sm:pt-8">
+      <h1 className="text-center text-[2rem]">{title}</h1>
+      {intro && <p className="mt-2 text-center text-muted">{intro}</p>}
+      <div className="panel mt-8 p-6 sm:p-7">{children}</div>
+      <p className="mt-6 text-center text-sm text-muted">{footer}</p>
     </div>
   );
 }

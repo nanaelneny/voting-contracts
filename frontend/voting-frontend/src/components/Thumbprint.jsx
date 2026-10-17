@@ -1,6 +1,6 @@
 import { useId } from "react";
 
-// A violet inked thumbprint, the mark Ghanaian voters press into the box beside their
+// An inked thumbprint (in the stamp-pad blue of the accent colour), the mark Ghanaian voters press into the box beside their
 // chosen candidate. Drawn as broken concentric ridges inside an oval.
 const RIDGES = [
   // [rx, ry, dash pattern, rotation]

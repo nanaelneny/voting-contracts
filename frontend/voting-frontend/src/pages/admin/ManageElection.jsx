@@ -6,7 +6,7 @@ import Results from "../../components/Results";
 import Avatar from "../../components/Avatar";
 import { prepareCandidatePhoto } from "../../lib/photo";
 import { useSettings } from "../../lib/settings";
-import { ErrorNotice, Notice, PageLoading, StatusTag, useAction, useLoad } from "../../components/ui";
+import { Check, ErrorNotice, Notice, PageLoading, StatusTag, useAction, useLoad } from "../../components/ui";
 import { ElectionForm } from "./AdminPages";
 
 const EDITABLE = ["draft"];
@@ -33,18 +33,16 @@ export default function ManageElection() {
 
   return (
     <div>
-      <Link to="/admin" className="text-sm font-semibold text-muted hover:text-ink">All elections</Link>
-      <header className="mt-3 border-b border-rule pb-6">
-        <div className="flex flex-wrap items-start justify-between gap-3">
-          <h1 className="max-w-2xl">{election.title}</h1>
-          <StatusTag status={election.status} admin />
-        </div>
-        <p className="mt-3 text-sm"><span className="font-semibold">Voting:</span> {formatWindow(election.startTime, election.endTime)}</p>
-        <Link to={`/elections/${election.id}`} className="btn-link mt-2 inline-block text-sm">See the voters' page</Link>
+      <Link to="/admin" className="back-link">All elections</Link>
+      <header className="mt-4">
+        <StatusTag status={election.status} admin />
+        <h1 className="mt-3 max-w-2xl">{election.title}</h1>
+        <p className="mt-3 text-[0.9375rem]"><span className="text-muted">Voting</span> {formatWindow(election.startTime, election.endTime)}</p>
+        <Link to={`/elections/${election.id}`} className="btn-link mt-2 inline-block text-[0.9375rem]">See the voters' page</Link>
       </header>
 
-      <div className="mt-8 grid gap-10 lg:grid-cols-[minmax(0,1fr)_22rem]">
-        <div className="space-y-10">
+      <div className="mt-12 grid gap-10 lg:grid-cols-[minmax(0,1fr)_22rem] lg:gap-14">
+        <div className="space-y-12">
           {EDITABLE.includes(election.status) && <SetupChecklist candidates={candidates} registrations={registrations} />}
           <Details election={election} onSaved={detail.reload} />
           <Candidates election={election} candidates={candidates} onChange={detail.reload} />
@@ -59,7 +57,7 @@ export default function ManageElection() {
             onDone={reloadAll}
           />
           {["upcoming", "open", "closed"].includes(election.status) && (
-            <div className="panel p-5">
+            <div className="panel p-6">
               <Results key={resultsKey} electionId={electionId} refreshMs={election.status === "open" ? 10_000 : 0} />
             </div>
           )}
@@ -77,15 +75,18 @@ function SetupChecklist({ candidates, registrations }) {
     { done: false, text: "Publish the election to the blockchain, at least a few minutes before voting opens" },
   ];
   return (
-    <section aria-labelledby="setup" className="panel p-5">
-      <h2 id="setup">Before voting opens</h2>
-      <ol className="mt-3 space-y-2 text-sm">
+    <section aria-labelledby="setup" className="rounded-2xl bg-accent-wash/70 p-6">
+      <h2 id="setup" className="text-lg">Before voting opens</h2>
+      <ol className="mt-4 space-y-3 text-[0.9375rem]">
         {steps.map((s, i) => (
           <li key={i} className="flex gap-3">
-            <span className={`grid size-6 shrink-0 place-items-center rounded-full text-xs font-bold ${s.done ? "bg-good text-white" : "border border-rule"}`}>
-              {s.done ? "✓" : i + 1}
+            <span className={`grid size-6 shrink-0 place-items-center rounded-full text-xs font-semibold tabular-nums ${s.done ? "bg-good text-white" : "bg-sheet text-accent shadow-soft"}`}>
+              {s.done ? <Check className="size-3.5" /> : i + 1}
             </span>
-            <span className={s.done ? "text-muted line-through" : ""}>{s.text}</span>
+            <span className={s.done ? "text-muted line-through decoration-muted/50" : ""}>
+              {s.text}
+              {s.done && <span className="sr-only"> (done)</span>}
+            </span>
           </li>
         ))}
       </ol>
@@ -102,7 +103,7 @@ function Details({ election, onSaved }) {
     <section aria-labelledby="details">
       <h2 id="details">Details</h2>
       {editable ? (
-        <div className="panel mt-3 p-5">
+        <div className="panel mt-4 p-6">
           <ElectionForm
             key={`${election.title}|${election.startTime}|${election.endTime}`}
             initial={election}
@@ -140,12 +141,12 @@ function Candidates({ election, candidates, onChange }) {
       {candidates.length === 0 ? (
         <p className="mt-2 text-sm text-muted">No candidates yet.</p>
       ) : (
-        <ul className="mt-3 divide-y divide-rule border-y border-rule">
+        <ul className="group-list mt-4">
           {candidates.map((c) => (
-            <li key={c.id} className="flex flex-wrap items-center gap-x-3 gap-y-2 py-3">
-              <Avatar name={c.name} photoUrl={c.photoUrl} size="lg" />
+            <li key={c.id} className="flex flex-wrap items-center gap-x-3.5 gap-y-2 px-4 py-3">
+              <Avatar name={c.name} photoUrl={c.photoUrl} size="md" />
               <span className="min-w-0 flex-1">
-                <span className="block font-semibold">{c.name}</span>
+                <span className="block font-semibold tracking-tight">{c.name}</span>
                 {c.party && <span className="block text-sm text-muted">{c.party}</span>}
               </span>
               {BEFORE_VOTING.includes(election.status) && (
@@ -154,7 +155,7 @@ function Candidates({ election, candidates, onChange }) {
               {editable && (
                 <button
                   type="button"
-                  className="text-sm font-semibold text-bad hover:underline disabled:opacity-50"
+                  className="text-sm font-medium text-bad hover:underline disabled:opacity-50"
                   disabled={busy}
                   onClick={() => run(async () => { await api.removeCandidate(election.id, c.id); await onChange(); })}
                 >
@@ -201,14 +202,14 @@ function PhotoControls({ election, candidate, onChange }) {
   return (
     <span className="flex flex-col items-end gap-1">
       <span className="flex gap-3 text-sm">
-        <button type="button" className="font-semibold text-violet hover:underline disabled:opacity-50" disabled={busy} onClick={() => input.current?.click()}>
+        <button type="button" className="font-medium text-accent hover:underline disabled:opacity-50" disabled={busy} onClick={() => input.current?.click()}>
           {busy ? "Uploading…" : candidate.photoUrl ? "Change photo" : "Add photo"}
           <span className="sr-only"> for {candidate.name}</span>
         </button>
         {candidate.photoUrl && (
           <button
             type="button"
-            className="font-semibold text-muted hover:text-bad hover:underline disabled:opacity-50"
+            className="font-medium text-muted hover:text-bad hover:underline disabled:opacity-50"
             disabled={busy}
             onClick={() => run(async () => { await api.removeCandidatePhoto(election.id, candidate.id); await onChange(); })}
           >
@@ -270,7 +271,7 @@ function Registrations({ election, state }) {
     <section aria-labelledby="registrations">
       <h2 id="registrations">Voter registrations</h2>
 
-      <div className="mt-4 flex gap-1 border-b border-rule" role="tablist">
+      <div className="mt-4 inline-flex gap-0.5 rounded-full bg-fill p-1" role="tablist">
         {TABS.map((t) => {
           const count = all.filter((r) => r.status === t.key).length;
           return (
@@ -279,10 +280,10 @@ function Registrations({ election, state }) {
               role="tab"
               aria-selected={tab === t.key}
               type="button"
-              className={`-mb-px border-b-2 px-3 py-2 text-sm font-semibold ${tab === t.key ? "border-violet text-violet" : "border-transparent text-muted hover:text-ink"}`}
+              className={`rounded-full px-3.5 py-1.5 text-sm font-medium transition-[background-color,color,box-shadow] duration-200 motion-reduce:transition-none ${tab === t.key ? "bg-sheet text-ink shadow-soft" : "text-muted hover:text-ink"}`}
               onClick={() => { setTab(t.key); setSelected(new Set()); }}
             >
-              {t.label} <span className="font-normal">({count})</span>
+              {t.label} <span className="font-normal text-muted tabular-nums">{count}</span>
             </button>
           );
         })}
@@ -294,25 +295,25 @@ function Registrations({ election, state }) {
           None.
         </p>
       ) : (
-        <div className="overflow-x-auto">
-          <table className="w-full min-w-[34rem] text-left text-sm">
+        <div className="panel mt-4 overflow-x-auto px-5 py-1">
+          <table className="w-full min-w-[34rem] text-left text-sm [&_th]:whitespace-nowrap">
             <thead className="text-muted">
               <tr className="border-b border-rule">
-                <th className="w-10 py-2">
+                <th className="w-10 py-3">
                   {canReview && selectable.length > 0 && (
                     <input
                       type="checkbox"
                       aria-label="Select all"
                       checked={selectable.every((r) => selected.has(r.id))}
                       onChange={(e) => setSelected(e.target.checked ? new Set(selectable.map((r) => r.id)) : new Set())}
-                      className="size-4 accent-violet"
+                      className="size-4 accent-accent"
                     />
                   )}
                 </th>
-                <th className="py-2 pr-3 font-semibold">Name</th>
-                <th className="py-2 pr-3 font-semibold">{memberIdLabel}</th>
-                <th className="py-2 pr-3 font-semibold">Registered</th>
-                <th className="py-2 font-semibold">Voter list</th>
+                <th className="py-3 pr-3 font-medium">Name</th>
+                <th className="py-3 pr-3 font-medium">{memberIdLabel}</th>
+                <th className="py-3 pr-3 font-medium">Registered</th>
+                <th className="py-3 font-medium">Voter list</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-rule">
@@ -325,7 +326,7 @@ function Registrations({ election, state }) {
                         aria-label={`Select ${r.user.fullName}`}
                         checked={selected.has(r.id)}
                         onChange={() => toggle(r.id)}
-                        className="size-4 accent-violet"
+                        className="size-4 accent-accent"
                       />
                     )}
                   </td>
@@ -334,8 +335,8 @@ function Registrations({ election, state }) {
                     <span className="block text-xs text-muted">{r.user.email}</span>
                   </td>
                   <td className="py-2.5 pr-3">{r.user.memberId || <span className="text-muted">–</span>}</td>
-                  <td className="py-2.5 pr-3 text-muted">{formatDateTime(r.createdAt)}</td>
-                  <td className="py-2.5">{r.onChain ? <span className="font-semibold text-good">On blockchain</span> : <span className="text-muted">Not yet</span>}</td>
+                  <td className="whitespace-nowrap py-2.5 pr-3 text-muted">{formatDateTime(r.createdAt)}</td>
+                  <td className="py-2.5">{r.onChain ? <span className="font-medium text-good">On blockchain</span> : <span className="text-muted">Not yet</span>}</td>
                 </tr>
               ))}
             </tbody>
@@ -362,9 +363,9 @@ function ConfirmButton({ className, label, confirmText, busyLabel, busy, onConfi
     return <button type="button" className={className} disabled={disabled || busy} onClick={() => setAsking(true)}>{label}</button>;
   }
   return (
-    <div className="rounded-md border border-rule bg-paper p-3">
+    <div className="rounded-xl bg-paper p-4">
       <p className="text-sm">{confirmText}</p>
-      <div className="mt-2 flex gap-2">
+      <div className="mt-3 flex flex-wrap gap-2">
         <button type="button" className={className} disabled={busy} onClick={async () => { await onConfirm(); setAsking(false); }}>
           {busy ? busyLabel : `Yes, ${label.toLowerCase()}`}
         </button>
@@ -383,7 +384,7 @@ function ChainActions({ election, candidates, registrations, finalized, onDone }
   const act = (fn, done) => run(async () => { setMessage(null); const r = await fn(); setMessage(done(r)); await onDone(); });
 
   return (
-    <section aria-labelledby="chain" className="panel space-y-5 p-5">
+    <section aria-labelledby="chain" className="panel space-y-6 p-6">
       <h2 id="chain">Blockchain</h2>
 
       {(s === "draft" || s === "publishing") && (
@@ -447,7 +448,7 @@ function ChainActions({ election, candidates, registrations, finalized, onDone }
       )}
 
       {BEFORE_VOTING.includes(s) && (
-        <div className="border-t border-rule pt-5">
+        <div className="border-t border-rule pt-6">
           <h3>Cancel election</h3>
           <div className="mt-3">
             <ConfirmButton
@@ -463,7 +464,7 @@ function ChainActions({ election, candidates, registrations, finalized, onDone }
       )}
 
       {s === "draft" && (
-        <div className="border-t border-rule pt-5">
+        <div className="border-t border-rule pt-6">
           <h3>Delete draft</h3>
           <div className="mt-3">
             <ConfirmButton

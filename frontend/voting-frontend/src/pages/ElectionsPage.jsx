@@ -4,7 +4,7 @@ import { useAuth } from "../lib/auth";
 import { useSettings } from "../lib/settings";
 import { formatWindow, relative } from "../lib/format";
 import Thumbprint from "../components/Thumbprint";
-import { ErrorNotice, PageLoading, StatusTag, useLoad } from "../components/ui";
+import { Chevron, ErrorNotice, PageLoading, StatusTag, useLoad } from "../components/ui";
 
 const GROUPS = [
   { title: "Voting now", statuses: ["open"] },
@@ -27,7 +27,7 @@ export default function ElectionsPage() {
     <div>
       {!user && <Intro />}
 
-      {user ? <h1>Elections</h1> : <h2 className="mt-14 text-2xl">Elections</h2>}
+      {user ? <h1>Elections</h1> : <h2 className="mt-20 text-[1.75rem] font-bold tracking-tight">Elections</h2>}
       {loading ? (
         <PageLoading />
       ) : error ? (
@@ -46,25 +46,26 @@ function ElectionGroups({ elections }) {
   return GROUPS.map(({ title, statuses }) => {
     const rows = elections.filter((e) => statuses.includes(e.status));
     if (rows.length === 0) return null;
-    const live = statuses.includes("open");
     return (
-      <section key={title} className="mt-8" aria-labelledby={`g-${title}`}>
-        <h2 id={`g-${title}`} className="text-base text-muted">{title}</h2>
-        <ul className="mt-3 space-y-3">
+      <section key={title} className="mt-10" aria-labelledby={`g-${title}`}>
+        <h2 id={`g-${title}`} className="px-1 text-sm font-medium text-muted">{title}</h2>
+        <ul className="group-list mt-2.5">
           {rows.map((e) => (
             <li key={e.id}>
               <Link
                 to={`/elections/${e.id}`}
-                className={`group flex flex-wrap items-center gap-x-4 gap-y-1 border bg-sheet px-4 py-4 hover:border-ink ${
-                  live ? "border-l-4 border-ink border-l-violet" : "border-rule"
-                }`}
+                className="group flex items-center gap-4 px-5 py-4 transition-colors hover:bg-paper/70 focus-visible:-outline-offset-4"
               >
                 <span className="min-w-0 flex-1">
-                  <span className="block font-display text-lg font-bold [font-stretch:108%] group-hover:text-violet">{e.title}</span>
-                  <span className="block text-sm text-muted">{formatWindow(e.startTime, e.endTime)}</span>
+                  <span className="mb-1.5 block sm:hidden"><StatusTag status={e.status} /></span>
+                  <span className="block text-[1.0625rem] font-semibold tracking-tight">{e.title}</span>
+                  <span className="mt-0.5 block text-sm text-muted">
+                    {formatWindow(e.startTime, e.endTime)}
+                    {hint(e) && <span className="block sm:inline sm:before:mx-2 sm:before:text-rule sm:before:content-['|']">{hint(e)}</span>}
+                  </span>
                 </span>
-                {hint(e) && <span className="text-sm text-muted">{hint(e)}</span>}
-                <StatusTag status={e.status} />
+                <span className="hidden sm:block"><StatusTag status={e.status} /></span>
+                <Chevron className="text-muted/50 transition-transform group-hover:translate-x-0.5 motion-reduce:transition-none" />
               </Link>
             </li>
           ))}
@@ -78,32 +79,34 @@ function ElectionGroups({ elections }) {
 function Intro() {
   const { organisationName } = useSettings();
   return (
-    <section aria-labelledby="intro" className="border-b border-rule pb-14">
-      <div className="grid items-center gap-10 md:grid-cols-[minmax(0,1fr)_20rem]">
+    <section aria-labelledby="intro">
+      <div className="grid items-center gap-12 pt-4 md:grid-cols-[minmax(0,1fr)_21rem] md:gap-16 md:pt-10">
         <div>
-          <h1 id="intro" className="max-w-xl text-4xl sm:text-5xl">Vote in secret. Check that it was counted.</h1>
-          <p className="mt-5 max-w-lg text-lg text-muted">
+          <h1 id="intro" className="max-w-xl text-[2.75rem] leading-[1.05] tracking-[-0.03em] sm:text-6xl">
+            Vote in secret. Check that it was counted.
+          </h1>
+          <p className="mt-6 max-w-lg text-lg leading-relaxed text-muted sm:text-xl">
             {organisationName ? `${organisationName} elections` : "Elections for your organisation"}, recorded on a public blockchain. Your ballot is proved valid without
             revealing who cast it, so not even the election officers can link a vote to a voter.
           </p>
-          <div className="mt-7 flex flex-wrap gap-3">
-            <Link to="/register" className="btn-primary px-5 py-3 text-base">Create an account</Link>
-            <Link to="/login" className="btn-secondary px-5 py-3 text-base">Log in</Link>
+          <div className="mt-8 flex flex-wrap gap-3">
+            <Link to="/register" className="btn-primary px-6 py-3 text-base">Create an account</Link>
+            <Link to="/login" className="btn-secondary px-6 py-3 text-base">Log in</Link>
           </div>
         </div>
         <SampleBallot />
       </div>
 
-      <ol className="mt-14 grid gap-8 sm:grid-cols-3">
+      <ol className="mt-24 grid gap-10 border-t border-rule pt-10 sm:grid-cols-3 sm:gap-8">
         {[
           ["Register", "Sign up and register for an election. Your browser creates a private voter key that never leaves your device."],
           ["Thumbprint your choice", "Your device proves you're on the voter list without saying which voter you are."],
           ["Counted in public", "Your ballot goes on the blockchain. Anyone can check the count; no one can trace it back to you."],
         ].map(([title, text], i) => (
           <li key={title}>
-            <span className="font-display text-3xl font-bold text-violet [font-stretch:115%]">{i + 1}</span>
-            <h2 className="mt-1 text-lg">{title}</h2>
-            <p className="mt-1 text-sm text-muted">{text}</p>
+            <span className="grid size-8 place-items-center rounded-full bg-accent-wash text-sm font-semibold text-accent tabular-nums">{i + 1}</span>
+            <h3 className="mt-4 text-lg">{title}</h3>
+            <p className="mt-1.5 text-[0.9375rem] leading-relaxed text-muted">{text}</p>
           </li>
         ))}
       </ol>
@@ -115,19 +118,22 @@ function Intro() {
 function SampleBallot() {
   const rows = ["Ama Owusu", "Kofi Mensah", "Esi Boateng"];
   return (
-    <div className="mx-auto w-full max-w-xs rotate-1 border-2 border-ink bg-sheet shadow-[6px_6px_0_var(--color-rule)]" aria-hidden="true">
-      <div className="border-b-2 border-ink px-4 py-2.5 font-display text-sm font-bold [font-stretch:112%]">Chairperson</div>
+    <div className="mx-auto w-full max-w-xs rotate-[1.5deg] overflow-hidden rounded-2xl bg-sheet shadow-lift ring-1 ring-ink/5" aria-hidden="true">
+      <div className="border-b border-ink/15 px-5 pb-3 pt-4">
+        <p className="text-[0.6875rem] font-medium text-muted">Ballot paper</p>
+        <p className="text-[0.9375rem] font-semibold tracking-tight">Chairperson</p>
+      </div>
       {rows.map((name, i) => (
-        <div key={name} className={`flex items-stretch ${i > 0 ? "border-t-2 border-ink" : ""}`}>
-          <span className="grid w-7 place-items-center border-r-2 border-ink font-display text-xs font-bold">{i + 1}</span>
-          <span className="flex flex-1 items-center gap-2 px-2.5 py-2">
-            <span className="grid size-8 place-items-center rounded-sm bg-violet-wash font-display text-xs font-bold text-violet-dark">
+        <div key={name} className={`flex items-stretch ${i > 0 ? "border-t border-ink/15" : ""}`}>
+          <span className="grid w-9 place-items-center text-xs font-medium text-muted tabular-nums">{i + 1}</span>
+          <span className="flex flex-1 items-center gap-2.5 py-3">
+            <span className="grid size-8 place-items-center rounded-full bg-gradient-to-b from-[#a1a1a6] to-[#86868b] text-[0.6875rem] font-semibold text-white">
               {name.split(" ").map((w) => w[0]).join("")}
             </span>
-            <span className="font-display text-sm font-bold [font-stretch:108%]">{name}</span>
+            <span className="text-sm font-semibold tracking-tight">{name}</span>
           </span>
-          <span className="grid w-14 place-items-center border-l-2 border-ink text-violet">
-            {i === 1 && <Thumbprint className="h-12 w-10 -rotate-6" />}
+          <span className="m-2 grid w-14 place-items-center rounded-lg border border-ink/15 text-accent">
+            {i === 1 && <Thumbprint className="h-11 w-9 -rotate-6" />}
           </span>
         </div>
       ))}
