@@ -2,7 +2,7 @@ import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { api } from "../../lib/api";
 import { formatWindow, toLocalInput } from "../../lib/format";
-import { Chevron, ErrorNotice, PageLoading, StatusTag, useAction, useLoad } from "../../components/ui";
+import { Chevron, EmptyState, ErrorNotice, PageLoading, StatusTag, useAction, useLoad } from "../../components/ui";
 
 export function AdminHome() {
   const { data, error, loading } = useLoad(() => api.listElections(), []);
@@ -20,7 +20,13 @@ export function AdminHome() {
       </div>
 
       {data.elections.length === 0 ? (
-        <p className="mt-10 text-muted">No elections yet.</p>
+        <EmptyState
+          title="No elections yet"
+          className="mt-8"
+          action={<Link to="/admin/elections/new" className="btn-primary">Create your first election</Link>}
+        >
+          Start with a draft: add candidates and approve voters, then publish it to the blockchain.
+        </EmptyState>
       ) : (
         <ul className="group-list mt-8">
           {data.elections.map((e) => (
@@ -128,7 +134,9 @@ export function RelayStats() {
       <h1 className="mt-4">Relay statistics</h1>
       <p className="mt-2 max-w-prose text-muted">Transactions the server has paid gas for on voters' behalf.</p>
       {rows.length === 0 ? (
-        <p className="mt-8 text-muted">Nothing has been relayed yet.</p>
+        <EmptyState title="Nothing relayed yet" className="mt-8">
+          Figures appear here after the first ballot is cast.
+        </EmptyState>
       ) : (
         <div className="panel mt-8 overflow-x-auto px-5 py-2">
           <table className="w-full min-w-[36rem] text-left text-sm tabular-nums">

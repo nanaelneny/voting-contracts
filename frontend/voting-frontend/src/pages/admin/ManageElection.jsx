@@ -6,7 +6,7 @@ import Results from "../../components/Results";
 import Avatar from "../../components/Avatar";
 import { prepareCandidatePhoto } from "../../lib/photo";
 import { useSettings } from "../../lib/settings";
-import { Check, ErrorNotice, Notice, PageLoading, StatusTag, useAction, useLoad } from "../../components/ui";
+import { Check, EmptyState, ErrorNotice, Notice, PageLoading, StatusTag, useAction, useLoad } from "../../components/ui";
 import { ElectionForm } from "./AdminPages";
 
 const EDITABLE = ["draft"];
@@ -139,7 +139,9 @@ function Candidates({ election, candidates, onChange }) {
     <section aria-labelledby="candidates">
       <h2 id="candidates">Candidates</h2>
       {candidates.length === 0 ? (
-        <p className="mt-2 text-sm text-muted">No candidates yet.</p>
+        <EmptyState icon="person" title="No candidates yet" className="mt-4">
+          {editable ? "Add each candidate's name below. You can add photos afterwards." : "This election has no candidates."}
+        </EmptyState>
       ) : (
         <ul className="group-list mt-4">
           {candidates.map((c) => (
@@ -240,9 +242,9 @@ function PhotoControls({ election, candidate, onChange }) {
 }
 
 const TABS = [
-  { key: "pending", label: "Waiting" },
-  { key: "approved", label: "Approved" },
-  { key: "rejected", label: "Rejected" },
+  { key: "pending", label: "Waiting", empty: "No one is waiting for approval" },
+  { key: "approved", label: "Approved", empty: "No one has been approved yet" },
+  { key: "rejected", label: "Rejected", empty: "No one has been rejected" },
 ];
 
 function Registrations({ election, state }) {
@@ -291,9 +293,9 @@ function Registrations({ election, state }) {
 
       {state.error && <ErrorNotice error={state.error} className="mt-3" />}
       {rows.length === 0 ? (
-        <p className="py-6 text-sm text-muted">
-          None.
-        </p>
+        <EmptyState icon="person" title={TABS.find((t) => t.key === tab).empty} className="mt-4">
+          {tab === "pending" && "Voters appear here when they register for this election."}
+        </EmptyState>
       ) : (
         <div className="panel mt-4 overflow-x-auto px-5 py-1">
           <table className="w-full min-w-[34rem] text-left text-sm [&_th]:whitespace-nowrap">

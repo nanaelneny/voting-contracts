@@ -11,6 +11,7 @@ import { Identity } from "@semaphore-protocol/identity";
 
 const key = (userId, electionId) => `secret-ballot:identity:${userId}:${electionId}`;
 const receiptKey = (userId, electionId) => `secret-ballot:receipt:${userId}:${electionId}`;
+const backupKey = (userId, electionId) => `secret-ballot:backup:${userId}:${electionId}`;
 
 function read(k) {
   try {
@@ -81,6 +82,16 @@ export async function importBackup(file, userId, electionId, expectedCommitment)
   }
   write(key(userId, electionId), identity.export());
   return identity;
+}
+
+// Remembers that the voter downloaded a backup of THIS key (by its public commitment), so the
+// page can stop nagging. If they register again with a new key, the old flag no longer matches.
+export function markBackedUp(userId, electionId, identity) {
+  write(backupKey(userId, electionId), identity.commitment.toString());
+}
+
+export function hasBackup(userId, electionId, identity) {
+  return Boolean(identity) && read(backupKey(userId, electionId)) === identity.commitment.toString();
 }
 
 // The receipt records only that a ballot was accepted and its transaction id, not the choice,

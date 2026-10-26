@@ -48,6 +48,39 @@ export function Chevron({ className = "" }) {
   );
 }
 
+/** A friendly empty page: what's missing, and what to do about it. */
+export function EmptyState({ icon = "ballot", title, children, action, className = "" }) {
+  return (
+    <div className={`flex flex-col items-center rounded-2xl border border-dashed border-ink/15 px-6 py-12 text-center ${className}`}>
+      <span className="grid size-12 place-items-center rounded-full bg-fill text-muted">
+        {icon === "person" ? <PersonIcon className="size-6" /> : <BallotBoxIcon className="size-6" />}
+      </span>
+      <p className="mt-4 font-semibold">{title}</p>
+      {children && <p className="mt-1 max-w-xs text-sm text-muted">{children}</p>}
+      {action && <div className="mt-5">{action}</div>}
+    </div>
+  );
+}
+
+function BallotBoxIcon({ className }) {
+  return (
+    <svg viewBox="0 0 24 24" className={className} fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <rect x="3" y="10" width="18" height="11" rx="3" />
+      <path d="M8 13h8" />
+      <path d="M8 10V4.5A1.5 1.5 0 0 1 9.5 3h5A1.5 1.5 0 0 1 16 4.5V10" />
+    </svg>
+  );
+}
+
+function PersonIcon({ className }) {
+  return (
+    <svg viewBox="0 0 24 24" className={className} fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" aria-hidden="true">
+      <circle cx="12" cy="8" r="4" />
+      <path d="M4.5 20.5c1.2-3.6 4-5.5 7.5-5.5s6.3 1.9 7.5 5.5" />
+    </svg>
+  );
+}
+
 /** A check mark, drawn rather than typed, so it looks the same on every device. */
 export function Check({ className = "" }) {
   return (
