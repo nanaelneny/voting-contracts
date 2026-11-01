@@ -194,3 +194,77 @@
     animation: none;
   }
 }
+
+/*
+  The bottom sheet: a native <dialog> opened with showModal(), so the browser handles
+  focus, the Esc key and hiding the page behind it from screen readers.
+  On phones it slides up from the bottom; on wider screens it's a centred card.
+*/
+.sheet {
+  margin: auto auto 0;
+  width: 100%;
+  max-width: 100%;
+  max-height: 92dvh;
+  overflow-y: auto;
+  border: 0;
+  padding: 0 0 env(safe-area-inset-bottom);
+  border-radius: 1.5rem 1.5rem 0 0;
+  background: var(--color-sheet);
+  color: var(--color-ink);
+  box-shadow: var(--shadow-lift);
+}
+.sheet::backdrop {
+  background: rgb(0 0 0 / 0.32);
+}
+@supports (backdrop-filter: blur(1px)) {
+  .sheet::backdrop {
+    backdrop-filter: blur(3px);
+  }
+}
+@keyframes sheet-up {
+  from { transform: translateY(100%); }
+  to { transform: none; }
+}
+@keyframes sheet-pop {
+  from { opacity: 0; transform: translateY(12px) scale(0.97); }
+  to { opacity: 1; transform: none; }
+}
+@keyframes fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+.sheet[open] {
+  animation: sheet-up 440ms var(--ease-out-soft) both;
+}
+.sheet[open]::backdrop {
+  animation: fade-in 300ms ease both;
+}
+@media (min-width: 640px) {
+  .sheet {
+    margin: auto;
+    max-width: 27rem;
+    border-radius: 1.5rem;
+  }
+  .sheet[open] {
+    animation-name: sheet-pop;
+    animation-duration: 320ms;
+  }
+}
+
+/* The receipt's seal: the thumbprint presses in, then the tick appears. */
+@keyframes pop {
+  0% { transform: scale(0); }
+  70% { transform: scale(1.15); }
+  100% { transform: scale(1); }
+}
+.animate-pop {
+  animation: pop 360ms 320ms var(--ease-out-soft) both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .sheet[open],
+  .sheet[open]::backdrop,
+  .animate-pop {
+    animation: none;
+  }
+}

@@ -4,7 +4,7 @@ import { useAuth } from "../lib/auth";
 import { useSettings } from "../lib/settings";
 import { formatWindow, relative } from "../lib/format";
 import Thumbprint from "../components/Thumbprint";
-import { Chevron, ErrorNotice, PageLoading, StatusTag, useLoad } from "../components/ui";
+import { Chevron, EmptyState, ErrorNotice, PageLoading, StatusTag, useLoad } from "../components/ui";
 
 const GROUPS = [
   { title: "Voting now", statuses: ["open"] },
@@ -41,7 +41,11 @@ export default function ElectionsPage() {
 
 function ElectionGroups({ elections }) {
   if (elections.filter((e) => e.status !== "cancelled").length === 0) {
-    return <p className="mt-6 text-muted">No elections yet. They'll appear here as soon as the election officer creates one.</p>;
+    return (
+      <EmptyState title="No elections yet" className="mt-8">
+        They'll appear here as soon as the election officer creates one.
+      </EmptyState>
+    );
   }
   return GROUPS.map(({ title, statuses }) => {
     const rows = elections.filter((e) => statuses.includes(e.status));
